@@ -14,9 +14,9 @@ import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import './App.css';
 
-const GEMINI_API_KEY = 'AIzaSyBiVjVDWAkDFSART-3XGCzZyjuQYMChDmg'; // Replace with your actual API key
+const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-const YOUTUBE_API_KEY = 'AIzaSyBsxTvtFdrt-RXWw_JflHVdwlRtqt2Ch3c';
+const YOUTUBE_API_KEY = process.env.REACT_APP_YOUTUBE_API_KEY;
 
 function App() {
     const [papers, setPapers] = useState([]);
