@@ -75,20 +75,44 @@ const chunkText = (text, maxLength = 1500) => {
 };
 
 // Function to extract text from PDF
-const extractTextFromPdf = async (pdfUrl) => {
-  const pdfjsLib = await import('pdfjs-dist');
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-  
-  const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-  let text = '';
-  
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    text += content.items.map(item => item.str).join(' ') + ' ';
-  }
-  
-  return text;
+const extractTextFromPdf = async (pdfFile) => {
+    try {
+        const pdfjsLib = await import('pdfjs-dist');
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`;
+
+        // If pdfFile is a blob URL, fetch it first
+        let arrayBuffer;
+        if (typeof pdfFile === 'string' && pdfFile.startsWith('blob:')) {
+            const response = await fetch(pdfFile);
+            const blob = await response.blob();
+            arrayBuffer = await blob.arrayBuffer();
+        } else if (pdfFile instanceof Blob) {
+            arrayBuffer = await pdfFile.arrayBuffer();
+        } else if (pdfFile instanceof ArrayBuffer) {
+            arrayBuffer = pdfFile;
+        } else {
+            throw new Error(`Invalid PDF data type: ${typeof pdfFile}`);
+        }
+
+        // Load the PDF document
+        const loadingTask = pdfjsLib.getDocument({ data: new Uint8Array(arrayBuffer) });
+        const pdf = await loadingTask.promise;
+        
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            const pageText = textContent.items
+                .map(item => item.str)
+                .join(' ');
+            fullText += `\n--- Page ${i} ---\n${pageText}\n`;
+        }
+        
+        return fullText;
+    } catch (error) {
+        console.error('Error in extractTextFromPdf:', error);
+        throw error;
+    }
 };
 
 // Function to store chunks and embeddings
@@ -214,4 +238,54 @@ const cosineSimilarity = (a, b) => {
     console.error('Error calculating similarity:', error, 'Inputs:', { a, b });
     return 0;
   }
-}; 
+};
+
+export const getPaperContent = async (paperId) => {
+    try {
+        console.log('Getting content for paper:', paperId);
+        
+        // Get the file path from the papers table
+        const { data: paper, error: paperError } = await supabase
+            .from('papers')
+            .select('file_path')
+            .eq('id', paperId)
+            .single();
+
+        if (paperError) {
+            console.error('Error getting paper:', paperError);
+            throw paperError;
+        }
+
+        if (!paper?.file_path) {
+            throw new Error('No file path found for paper');
+        }
+
+        console.log('Downloading file from path:', paper.file_path);
+        
+        // Download the PDF file
+        const { data: fileData, error: downloadError } = await supabase.storage
+            .from('pdfs')
+            .download(paper.file_path);
+
+        if (downloadError) {
+            console.error('Error downloading file:', downloadError);
+            throw downloadError;
+        }
+
+        if (!fileData) {
+            throw new Error('No file data received');
+        }
+
+        console.log('File downloaded, type:', fileData.constructor.name);
+        
+        // Convert PDF to text
+        const pdfText = await extractTextFromPdf(fileData);
+        return pdfText;
+    } catch (error) {
+        console.error('Error getting paper content:', error);
+        throw error;
+    }
+};
+
+// Export the function so it can be used by getPaperContent
+export { extractTextFromPdf }; 

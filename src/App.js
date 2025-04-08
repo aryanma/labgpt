@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import { highlightPlugin } from '@react-pdf-viewer/highlight';
@@ -7,7 +7,11 @@ import { supabase } from './supabaseClient';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ResetPassword from './ResetPassword';
 import SearchPalette from './components/SearchPalette';
-import { searchPapers, processAndStorePdf } from './utils/searchUtils';
+import { processAndStorePdf, getPaperContent } from './utils/searchUtils';
+import SearchHistory from './components/SearchHistory';
+import VoiceSearch from './components/VoiceSearch';
+import WorkspacePalette from './components/WorkspacePalette';
+import './styles/VoiceSearch.css';
 
 // Import styles
 import '@react-pdf-viewer/core/lib/styles/index.css';
@@ -15,11 +19,12 @@ import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import './App.css';
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent';
 const YOUTUBE_API_KEY = process.env.REACT_APP_YOUTUBE_API_KEY;
 
 function App() {
     const [papers, setPapers] = useState([]);
+    const [personalPapers, setPersonalPapers] = useState([]);
     const [selectedPaper, setSelectedPaper] = useState(null);
     const [notes, setNotes] = useState({});
     const [userMessage, setUserMessage] = useState('');
@@ -27,14 +32,23 @@ function App() {
     const [highlightedText, setHighlightedText] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const [editingNote, setEditingNote] = useState(null);
-    const [videoSuggestions, setVideoSuggestions] = useState({}); // new
-    const [isVideoLoading, setIsVideoLoading] = useState(false); // new
+    const [videoSuggestions, setVideoSuggestions] = useState({});
+    const [isVideoLoading, setIsVideoLoading] = useState(false);
+    const [isLoadingPapers, setIsLoadingPapers] = useState(false);
     const fileInputRef = React.useRef(null);
     const [session, setSession] = useState(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [selectedPaperIds, setSelectedPaperIds] = useState([]);
+    const [searchHistory, setSearchHistory] = useState([]);
+    const [totalPages, setTotalPages] = useState(1);
+    const TOKEN_LIMIT = 30000; // Gemini's token limit
+    const [query, setQuery] = useState('');
+    const searchPaletteRef = useRef(null);
+    const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
+    const [currentWorkspace, setCurrentWorkspace] = useState(null);
+    const workspacePaletteRef = useRef(null);
 
     const defaultLayoutPluginInstance = defaultLayoutPlugin();
     const highlightPluginInstance = highlightPlugin({
@@ -195,19 +209,20 @@ function App() {
             );
             const detailsData = await detailsResponse.json();
 
-            // Create suggestions with unique IDs
+            // Create suggestions with unique IDs and workspace context
             const newSuggestions = data.items.map((item, index) => {
                 const details = detailsData.items[index];
                 return {
-                    id: crypto.randomUUID(), // Add unique ID
+                    id: crypto.randomUUID(),
                     paper_id: selectedPaper.id,
                     user_id: session.user.id,
+                    workspace_id: currentWorkspace?.id || null,
                     video_id: item.id.videoId,
                     title: item.snippet.title,
                     duration: formatDuration(details.contentDetails.duration),
                     view_count: parseInt(details.statistics.viewCount).toLocaleString(),
                     timestamp: new Date().toISOString(),
-                    is_pinned: false // Match database column name
+                    is_pinned: false
                 };
             });
 
@@ -296,50 +311,6 @@ function App() {
     
         return () => subscription.unsubscribe();
     }, []);
-
-    const loadPapers = useCallback(async () => {
-        if (!session?.user) return;
-
-        try {
-            const { data, error } = await supabase
-                .from('papers')
-                .select('*')
-                .order('date_added', { ascending: false });
-
-            if (error) throw error;
-
-            const loadedPapers = await Promise.all(data.map(async (paper) => {
-                const { data: fileData, error: downloadError } = await supabase.storage
-                    .from('pdfs')
-                    .download(paper.file_path);
-
-                if (downloadError) throw downloadError;
-
-                const localUrl = URL.createObjectURL(fileData);
-
-                return {
-                    id: paper.id,
-                    title: paper.title,
-                    file: localUrl,
-                    dateAdded: new Date(paper.date_added).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                    }),
-                };
-            }));
-
-            setPapers(loadedPapers);
-        } catch (error) {
-            console.error('Error loading papers:', error);
-            alert('Error loading papers');
-        }
-    }, [session]);
-
-    useEffect(() => {
-        loadPapers();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [session]);
 
     const handleEditNote = (noteId) => {
         setEditingNote(noteId);
@@ -451,7 +422,7 @@ function App() {
                         autoFocus
                     />
                     <div className="highlight-popup-actions">
-                        <button className="highlight-button" onClick={() => setEditingNote(null)}>Cancel</button>
+                        <button className="highlight-button" onClick={() => setEditingNote(null)} style={{ marginRight: '8px' }}>Cancel</button>
                         <button 
                             className="highlight-button" 
                             onClick={(e) => {
@@ -536,6 +507,26 @@ function App() {
                 setPapers([...papers, newPaper]);
                 fileInputRef.current.value = '';
 
+                // If in a workspace, add the paper to the workspace
+                if (currentWorkspace) {
+                    const { error: workspacePaperError } = await supabase
+                        .from('workspace_papers')
+                        .insert({
+                            workspace_id: currentWorkspace.id,
+                            paper_id: paper.id,
+                            added_by: session.user.id
+                        });
+
+                    if (workspacePaperError) throw workspacePaperError;
+                }
+
+                // Reload papers based on context
+                if (currentWorkspace) {
+                    await loadWorkspacePapers(currentWorkspace.id);
+                } else {
+                    await loadUserPapers();
+                }
+
             } catch (error) {
                 console.error('Error uploading file:', error);
                 alert(`Error uploading file: ${error.message || 'Unknown error'}`);
@@ -550,63 +541,87 @@ function App() {
 
     const handleDelete = async (paperId) => {
         if (!window.confirm('Are you sure you want to delete this paper?')) return;
-        
+
         try {
-            // First delete all associated notes
-            const { error: notesError } = await supabase
-                .from('notes')
-                .delete()
-                .eq('paper_id', paperId);
+            if (currentWorkspace) {
+                // If in a workspace, just remove the paper from the workspace
+                const { error: workspacePaperError } = await supabase
+                    .from('workspace_papers')
+                    .delete()
+                    .eq('workspace_id', currentWorkspace.id)
+                    .eq('paper_id', paperId);
 
-            if (notesError) throw notesError;
+                if (workspacePaperError) throw workspacePaperError;
 
-            // Then delete all associated video suggestions
-            const { error: videoError } = await supabase
-                .from('video_suggestions')
-                .delete()
-                .eq('paper_id', paperId);
+                // Clear selected paper if it was the one deleted
+                if (selectedPaper?.id === paperId) {
+                    setSelectedPaper(null);
+                }
 
-            if (videoError) throw videoError;
+                // Update local state
+                setPapers(papers.filter(p => p.id !== paperId));
+            } else {
+                // For personal papers, delete everything
+                // First get the paper details
+                const { data: paper, error: paperFetchError } = await supabase
+                    .from('papers')
+                    .select('file_path')
+                    .eq('id', paperId)
+                    .single();
 
-            // Get the paper's file path before deleting the paper record
-            const paper = papers.find(p => p.id === paperId);
-            if (!paper) return;
+                if (paperFetchError) throw paperFetchError;
 
-            // Delete the paper record from the database
-            const { error: paperError } = await supabase
-                .from('papers')
-                .delete()
-                .eq('id', paperId);
+                // Delete all associated data
+                await Promise.all([
+                    // Delete notes
+                    supabase.from('notes').delete().eq('paper_id', paperId),
+                    // Delete video suggestions
+                    supabase.from('video_suggestions').delete().eq('paper_id', paperId),
+                    // Delete search history entries
+                    supabase.from('search_history').delete().filter('paper_ids', 'cs', `{${paperId}}`),
+                    // Delete workspace_papers entries
+                    supabase.from('workspace_papers').delete().eq('paper_id', paperId),
+                ]);
 
-            if (paperError) throw paperError;
+                // Delete the paper record
+                const { error: paperError } = await supabase
+                    .from('papers')
+                    .delete()
+                    .eq('id', paperId);
 
-            // Delete the file from storage
-            const { error: storageError } = await supabase.storage
-                .from('pdfs')
-                .remove([paper.file_path]);
+                if (paperError) throw paperError;
 
-            if (storageError) throw storageError;
+                // Delete the file from storage if it exists
+                if (paper?.file_path) {
+                    const { error: storageError } = await supabase.storage
+                        .from('pdfs')
+                        .remove([paper.file_path]);
 
-            // Update local state
-            setPapers(papers.filter(p => p.id !== paperId));
-            setNotes(prevNotes => {
-                const newNotes = { ...prevNotes };
-                delete newNotes[paperId];
-                return newNotes;
-            });
-            setVideoSuggestions(prevVideos => {
-                const newVideos = { ...prevVideos };
-                delete newVideos[paperId];
-                return newVideos;
-            });
+                    if (storageError) throw storageError;
+                }
 
-            if (selectedPaper?.id === paperId) {
-                setSelectedPaper(null);
+                // Clear selected paper if it was the one deleted
+                if (selectedPaper?.id === paperId) {
+                    setSelectedPaper(null);
+                }
+
+                // Update local state
+                setPapers(papers.filter(p => p.id !== paperId));
+                setSearchHistory(searchHistory.filter(h => !h.paper_ids.includes(paperId)));
+                setNotes(prevNotes => {
+                    const newNotes = { ...prevNotes };
+                    delete newNotes[paperId];
+                    return newNotes;
+                });
+                setVideoSuggestions(prevSuggestions => {
+                    const newSuggestions = { ...prevSuggestions };
+                    delete newSuggestions[paperId];
+                    return newSuggestions;
+                });
             }
-
         } catch (error) {
             console.error('Error deleting paper:', error);
-            alert('Error deleting paper');
+            alert('Error deleting paper: ' + error.message);
         }
     };
 
@@ -655,11 +670,12 @@ Please provide a clear and concise response, focusing on the specific question w
 
             const geminiResponse = data.candidates[0].content.parts[0].text;
 
-            // Create new note
+            // Create new note with workspace context if applicable
             const newNote = {
                 id: crypto.randomUUID(),
                 user_id: session.user.id,
                 paper_id: selectedPaper.id,
+                workspace_id: currentWorkspace?.id || null,
                 page: currentPage,
                 highlight: highlightedText,
                 message: userMessage,
@@ -681,7 +697,7 @@ Please provide a clear and concise response, focusing on the specific question w
                 [selectedPaper.id]: [...(prevNotes[selectedPaper.id] || []), newNote]
             }));
 
-            // Generate and save video suggestions
+            // Generate and save video suggestions with workspace context
             await handleGetVideoSuggestions(highlightedText);
 
             setUserMessage('');
@@ -767,24 +783,41 @@ Please provide a clear and concise response, focusing on the specific question w
         if (!session?.user) return;
 
         try {
-            // Load notes
-            const { data: notesData, error: notesError } = await supabase
+            // Load notes with proper workspace handling
+            let notesQuery = supabase
                 .from('notes')
                 .select('*')
-                .eq('paper_id', paperId)
-                .eq('user_id', session.user.id)
-                .order('timestamp', { ascending: true });
+                .eq('paper_id', paperId);
+            
+            if (currentWorkspace) {
+                // In workspace context, get all notes from the workspace
+                notesQuery = notesQuery.eq('workspace_id', currentWorkspace.id);
+            } else {
+                // In personal context, only get user's personal notes
+                notesQuery = notesQuery
+                    .eq('user_id', session.user.id)
+                    .is('workspace_id', null);
+            }
 
+            const { data: notesData, error: notesError } = await notesQuery;
             if (notesError) throw notesError;
 
-            // Load video suggestions and remove duplicates
-            const { data: videosData, error: videosError } = await supabase
+            // Load video suggestions with similar workspace handling
+            let videosQuery = supabase
                 .from('video_suggestions')
                 .select('*')
                 .eq('paper_id', paperId)
-                .eq('user_id', session.user.id)
                 .order('timestamp', { ascending: false }); // Show newest first
 
+            if (currentWorkspace) {
+                videosQuery = videosQuery.eq('workspace_id', currentWorkspace.id);
+            } else {
+                videosQuery = videosQuery
+                    .eq('user_id', session.user.id)
+                    .is('workspace_id', null);
+            }
+
+            const { data: videosData, error: videosError } = await videosQuery;
             if (videosError) throw videosError;
 
             // Remove duplicates based on video_id, keeping the most recent one
@@ -816,9 +849,14 @@ Please provide a clear and concise response, focusing on the specific question w
     // Add this effect to handle the keyboard shortcut
     useEffect(() => {
         const handleKeyDown = (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                e.preventDefault();
-                setIsSearchOpen(true);
+            if ((e.metaKey || e.ctrlKey)) {
+                if (e.key === 'k') {
+                    e.preventDefault();
+                    setIsSearchOpen(true);
+                } else if (e.key === 'i') {
+                    e.preventDefault();
+                    setIsWorkspaceOpen(true);
+                }
             }
         };
 
@@ -826,35 +864,48 @@ Please provide a clear and concise response, focusing on the specific question w
         return () => document.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    // Add this function to handle search
-    const handleSearch = async (query, selectedPaperIds) => {
-        if (!selectedPaperIds.length) return;
+    // Add this function to load search history
+    const loadSearchHistory = useCallback(async () => {
+        if (!session?.user) return;
         
+        const { data, error } = await supabase
+            .from('search_history')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .order('timestamp', { ascending: false });
+        
+        if (error) {
+            console.error('Error loading search history:', error);
+            return;
+        }
+        
+        setSearchHistory(data);
+    }, [session?.user]);
+
+    // Add useEffect to load search history when component mounts
+    useEffect(() => {
+        if (session?.user) {
+            loadSearchHistory();
+        }
+    }, [session, loadSearchHistory]);
+
+    // Modify handleSearch to include pagination and token handling
+    const handleSearch = async (query, paperIds) => {
+        if (!query || !paperIds?.length) return;
+
+        setIsGeminiLoading(true);
         try {
-            const relevantChunks = await searchPapers(query, selectedPaperIds);
-            
-            if (!relevantChunks.length) {
-                return "I couldn't find any relevant content in the selected papers to answer your question.";
-            }
-            
-            // Get paper titles for context
-            const { data: papers } = await supabase
-                .from('papers')
-                .select('id, title')
-                .in('id', selectedPaperIds);
-                
-            const paperTitles = papers.map(p => p.title).join('" and "');
-            
-            const context = relevantChunks.join('\n\n');
-            
-            const prompt = `You are analyzing the papers "${paperTitles}". 
-Based on these relevant excerpts from the papers:
+            // Get content for selected papers
+            const contents = await Promise.all(
+                paperIds.map(id => getPaperContent(id))
+            );
 
-${context}
+            const prompt = `Search Query: "${query}"
 
-Please answer this question: ${query}
+Papers to search:
+${contents.map((content, i) => `Paper ${i + 1}: ${content}`).join('\n\n')}
 
-If the excerpts don't contain enough information to answer the question directly, summarize what you can understand from the available context. Be specific and cite the papers when possible.`;
+Please provide relevant excerpts and explanations from these papers that answer or relate to the search query. Format your response clearly, citing which paper each piece of information comes from.`;
 
             const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
                 method: 'POST',
@@ -866,14 +917,486 @@ If the excerpts don't contain enough information to answer the question directly
                 })
             });
 
+            if (!response.ok) throw new Error('Failed to get response from Gemini');
+            
             const data = await response.json();
-            return data.candidates[0].content.parts[0].text;
+            const searchResult = data.candidates[0].content.parts[0].text;
+
+            // Save to search history
+            const { error } = await supabase
+                .from('search_history')
+                .insert({
+                    user_id: session.user.id,
+                    query,
+                    paper_ids: paperIds,
+                    response: searchResult,
+                    timestamp: new Date().toISOString()
+                });
+
+            if (error) throw error;
+
+            // Update local state
+            loadSearchHistory();
+
+            // Update the search palette with results
+            if (searchPaletteRef.current) {
+                searchPaletteRef.current.setSearchResult(searchResult);
+            }
+
+            return searchResult;
 
         } catch (error) {
-            console.error('Error searching papers:', error);
-            return "Sorry, there was an error processing your search. Please try again.";
+            console.error('Search error:', error);
+            alert('Error performing search');
+        } finally {
+            setIsGeminiLoading(false);
         }
     };
+
+    // Update handleSelectHistory to set the search result directly
+    const handleSelectHistory = (item) => {
+        setQuery(item.query);
+        setSelectedPaperIds(item.paper_ids);
+        setIsSearchOpen(true);
+        // Pass the stored response to SearchPalette by setting its state
+        if (searchPaletteRef.current) {
+            searchPaletteRef.current.setSearchResult(item.response);
+        }
+    };
+
+    const handleDeleteHistory = async (id) => {
+        try {
+            const { error } = await supabase
+                .from('search_history')
+                .delete()
+                .eq('id', id);
+            
+            if (error) throw error;
+            
+            // Refresh history
+            loadSearchHistory();
+        } catch (error) {
+            console.error('Error deleting history:', error);
+        }
+    };
+
+    const handleToggleFavorite = async (id) => {
+        try {
+            const item = searchHistory.find(h => h.id === id);
+            const { error } = await supabase
+                .from('search_history')
+                .update({ favorite: !item.favorite })
+                .eq('id', id);
+            
+            if (error) throw error;
+            
+            // Refresh history
+            loadSearchHistory();
+        } catch (error) {
+            console.error('Error updating favorite:', error);
+        }
+    };
+
+    const handleVoiceInput = async ({ type, query, text, paperIds }) => {
+        switch (type) {
+            case 'search':
+                setQuery(query);
+                if (paperIds) {
+                    setSelectedPaperIds(paperIds);
+                }
+                
+                setIsSearchOpen(true);
+                
+                // Wait for search to complete and show results
+                const papersToSearch = paperIds || papers.map(p => p.id);
+                const searchResult = await handleSearch(query, papersToSearch);
+                
+                // Ensure search palette is open and showing results
+                if (searchResult && searchPaletteRef.current) {
+                    searchPaletteRef.current.setSearchResult(searchResult);
+                }
+                break;
+            
+            case 'question':
+                if (selectedPaper && highlightedText) {
+                    setUserMessage(text);
+                    // Execute the question immediately
+                    handleAskGemini();
+                }
+                break;
+            
+            default:
+                break;
+        }
+    };
+
+    // Update loadWorkspacePapers function
+    const loadWorkspacePapers = async (workspaceId) => {
+        setIsLoadingPapers(true);
+        try {
+            const { data, error } = await supabase
+                .from('workspace_papers')
+                .select(`
+                    paper_id,
+                    papers:paper_id (
+                        id,
+                        title,
+                        file_path,
+                        user_id,
+                        date_added
+                    )
+                `)
+                .eq('workspace_id', workspaceId);
+
+            if (error) throw error;
+            
+            // Transform the papers to include the file URL
+            const transformedPapers = await Promise.all(data.map(async wp => {
+                const { data: fileData } = await supabase.storage
+                    .from('pdfs')
+                    .download(wp.papers.file_path);
+                
+                const blobUrl = URL.createObjectURL(fileData);
+                    
+                return {
+                    ...wp.papers,
+                    file: blobUrl,
+                    dateAdded: new Date(wp.papers.date_added).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                    })
+                };
+            }));
+            
+            setPapers(transformedPapers);
+        } catch (error) {
+            console.error('Error loading workspace papers:', error);
+        } finally {
+            setIsLoadingPapers(false);
+        }
+    };
+
+    // Update loadUserPapers function to properly exclude workspace papers from personal view
+    const loadUserPapers = async () => {
+        if (!session?.user) return;
+        setIsLoadingPapers(true);
+        try {
+            // First get all workspace papers to exclude
+            const { data: workspacePapers, error: workspaceError } = await supabase
+                .from('workspace_papers')
+                .select('paper_id');
+
+            if (workspaceError) {
+                console.error('Error fetching workspace papers:', workspaceError);
+                throw workspaceError;
+            }
+
+            // Create a Set of paper IDs that are in workspaces
+            const workspacePaperIds = new Set(workspacePapers?.map(wp => wp.paper_id) || []);
+
+            // Get user's papers that are NOT in any workspace
+            const { data: userPapers, error: papersError } = await supabase
+                .from('papers')
+                .select('*')
+                .eq('user_id', session.user.id)
+                .order('created_at', { ascending: false });
+
+            if (papersError) {
+                console.error('Error fetching user papers:', papersError);
+                throw papersError;
+            }
+
+            // Filter out papers that exist in any workspace
+            const personalPapersData = userPapers.filter(paper => !workspacePaperIds.has(paper.id));
+
+            // Transform remaining papers to include file URLs
+            const transformedPapers = await Promise.all(personalPapersData.map(async paper => {
+                try {
+                    const { data: fileData, error: fileError } = await supabase.storage
+                        .from('pdfs')
+                        .download(paper.file_path);
+
+                    if (fileError) {
+                        console.error('Error downloading file:', fileError);
+                        throw fileError;
+                    }
+
+                    const blobUrl = URL.createObjectURL(fileData);
+                    return {
+                        ...paper,
+                        file: blobUrl,
+                        dateAdded: new Date(paper.created_at).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                        })
+                    };
+                } catch (fileError) {
+                    console.error('Error processing file for paper:', paper.id, fileError);
+                    return null;
+                }
+            }));
+
+            // Filter out any papers that failed to load and update both states
+            const validPapers = transformedPapers.filter(Boolean);
+            setPersonalPapers(validPapers);
+            setPapers(validPapers);
+
+        } catch (error) {
+            console.error('Error loading user papers:', error);
+            alert('Error loading papers');
+        } finally {
+            setIsLoadingPapers(false);
+        }
+    };
+
+    // Update handleWorkspaceChange to properly handle workspace transitions
+    const handleWorkspaceChange = async (workspace) => {
+        setIsLoadingPapers(true);
+        try {
+            if (workspace) {
+                // Switching to a workspace
+                setCurrentWorkspace(workspace);
+                localStorage.setItem('currentWorkspace', JSON.stringify(workspace));
+                await loadWorkspacePapers(workspace.id);
+            } else {
+                // Exiting workspace
+                setCurrentWorkspace(null);
+                localStorage.removeItem('currentWorkspace');
+                // Load and set personal papers
+                await loadUserPapers();
+            }
+            
+            // Clear selected paper when switching contexts
+            setSelectedPaper(null);
+            
+        } catch (error) {
+            console.error('Error changing workspace:', error);
+            alert('Error changing workspace context');
+        } finally {
+            setIsLoadingPapers(false);
+        }
+    };
+
+    const loadPapers = async () => {
+        if (!session?.user) return;
+        setIsLoadingPapers(true);
+
+        try {
+            if (currentWorkspace) {
+                // In workspace context, get papers from the workspace
+                const { data: workspacePapers, error: wpError } = await supabase
+                    .from('workspace_papers')
+                    .select('paper_id')
+                    .eq('workspace_id', currentWorkspace.id);
+
+                if (wpError) {
+                    console.error('Error fetching workspace papers:', wpError);
+                    throw wpError;
+                }
+
+                if (!workspacePapers?.length) {
+                    setPapers([]);
+                    return;
+                }
+
+                // Get the actual paper details
+                const { data: papers, error: papersError } = await supabase
+                    .from('papers')
+                    .select('*')
+                    .in('id', workspacePapers.map(wp => wp.paper_id))
+                    .order('created_at', { ascending: false });
+
+                if (papersError) {
+                    console.error('Error fetching paper details:', papersError);
+                    throw papersError;
+                }
+
+                // Transform papers to include file URLs
+                const transformedPapers = await Promise.all(papers.map(async paper => {
+                    try {
+                        const { data: fileData, error: fileError } = await supabase.storage
+                            .from('pdfs')
+                            .download(paper.file_path);
+
+                        if (fileError) {
+                            console.error('Error downloading file:', fileError);
+                            throw fileError;
+                        }
+
+                        const blobUrl = URL.createObjectURL(fileData);
+                        return {
+                            ...paper,
+                            file: blobUrl,
+                            dateAdded: new Date(paper.created_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                            })
+                        };
+                    } catch (fileError) {
+                        console.error('Error processing file for paper:', paper.id, fileError);
+                        return null;
+                    }
+                }));
+
+                // Filter out any papers that failed to load
+                setPapers(transformedPapers.filter(Boolean));
+            } else {
+                // In personal context, get user's papers
+                const { data: papers, error: papersError } = await supabase
+                    .from('papers')
+                    .select('*')
+                    .eq('user_id', session.user.id)
+                    .order('created_at', { ascending: false });
+
+                if (papersError) {
+                    console.error('Error fetching personal papers:', papersError);
+                    throw papersError;
+                }
+
+                // Transform papers to include file URLs
+                const transformedPapers = await Promise.all(papers.map(async paper => {
+                    try {
+                        const { data: fileData, error: fileError } = await supabase.storage
+                            .from('pdfs')
+                            .download(paper.file_path);
+
+                        if (fileError) {
+                            console.error('Error downloading file:', fileError);
+                            throw fileError;
+                        }
+
+                        const blobUrl = URL.createObjectURL(fileData);
+                        return {
+                            ...paper,
+                            file: blobUrl,
+                            dateAdded: new Date(paper.created_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                            })
+                        };
+                    } catch (fileError) {
+                        console.error('Error processing file for paper:', paper.id, fileError);
+                        return null;
+                    }
+                }));
+
+                // Filter out any papers that failed to load
+                setPapers(transformedPapers.filter(Boolean));
+            }
+        } catch (error) {
+            console.error('Detailed error loading papers:', error);
+            alert('Error loading papers. Please check console for details.');
+        } finally {
+            setIsLoadingPapers(false);
+        }
+    };
+
+    // Add effect to load initial papers
+    useEffect(() => {
+        const loadInitialPapers = async () => {
+            if (session?.user) {
+                const storedWorkspace = localStorage.getItem('currentWorkspace');
+                if (storedWorkspace) {
+                    const workspace = JSON.parse(storedWorkspace);
+                    setCurrentWorkspace(workspace);
+                    await loadWorkspacePapers(workspace.id);
+                } else {
+                    await loadUserPapers();
+                }
+            }
+        };
+
+        loadInitialPapers();
+    }, [session]);
+
+    // Add effect to load papers when workspace context changes
+    useEffect(() => {
+        if (session?.user) {
+            loadPapers();
+        }
+    }, [session, currentWorkspace]); // Re-run when session or workspace context changes
+
+    // Add subscription for paper deletions
+    useEffect(() => {
+        if (!session?.user) return;
+
+        // Subscribe to workspace_papers deletions
+        const workspacePapersSubscription = supabase
+            .channel('workspace_papers_changes')
+            .on('postgres_changes', {
+                event: 'DELETE',
+                schema: 'public',
+                table: 'workspace_papers'
+            }, (payload) => {
+                // First clear all states if the deleted paper was being viewed
+                if (selectedPaper?.id === payload.old.paper_id) {
+                    setSelectedPaper(null);
+                    setNotes(prev => {
+                        const newNotes = { ...prev };
+                        delete newNotes[payload.old.paper_id];
+                        return newNotes;
+                    });
+                    setVideoSuggestions(prev => {
+                        const newSuggestions = { ...prev };
+                        delete newSuggestions[payload.old.paper_id];
+                        return newSuggestions;
+                    });
+                    setHighlightedText('');
+                    setUserMessage('');
+                }
+                // Then update papers list
+                setPapers(prevPapers => prevPapers.filter(p => p.id !== payload.old.paper_id));
+            })
+            .subscribe();
+
+        // Subscribe to papers deletions
+        const papersSubscription = supabase
+            .channel('papers_changes')
+            .on('postgres_changes', {
+                event: 'DELETE',
+                schema: 'public',
+                table: 'papers'
+            }, (payload) => {
+                // First clear all states if the deleted paper was being viewed
+                if (selectedPaper?.id === payload.old.id) {
+                    setSelectedPaper(null);
+                    setNotes(prev => {
+                        const newNotes = { ...prev };
+                        delete newNotes[payload.old.id];
+                        return newNotes;
+                    });
+                    setVideoSuggestions(prev => {
+                        const newSuggestions = { ...prev };
+                        delete newSuggestions[payload.old.id];
+                        return newSuggestions;
+                    });
+                    setHighlightedText('');
+                    setUserMessage('');
+                }
+                // Then update papers list
+                setPapers(prevPapers => prevPapers.filter(p => p.id !== payload.old.id));
+            })
+            .subscribe();
+
+        return () => {
+            workspacePapersSubscription.unsubscribe();
+            papersSubscription.unsubscribe();
+        };
+    }, [session, selectedPaper]);
+
+    // Add this effect to ensure selectedPaper is always valid
+    useEffect(() => {
+        // If the selectedPaper doesn't exist in the papers array, clear it
+        if (selectedPaper && papers.length > 0 && !papers.some(p => p.id === selectedPaper.id)) {
+            setSelectedPaper(null);
+            setHighlightedText('');
+            setUserMessage('');
+        }
+    }, [papers, selectedPaper]);
 
     return (
         <Router>
@@ -888,7 +1411,14 @@ If the excerpts don't contain enough information to answer the question directly
                         <div className="App">
                             <header className="App-header">
                                 <h1>LabGPT</h1>
-                                <p>Your AI-powered research assistant</p>
+                                <div className="header-actions">
+                                    <span className="header-subtitle">Your AI-powered research assistant</span>
+                                    {currentWorkspace && (
+                                        <div className="current-workspace">
+                                            <span>Workspace: {currentWorkspace.name}</span>
+                                        </div>
+                                    )}
+                                </div>
                             </header>
 
                             {!session ? (
@@ -949,38 +1479,49 @@ If the excerpts don't contain enough information to answer the question directly
                                     </div>
                             
                                     <div className="papers-grid">
-                                        {papers.map((paper) => (
-                                            <div
-                                                key={paper.id}
-                                                className="paper-card"
-                                                onClick={() => handleSelectPaper(paper)}
-                                            >
-                                                <h3>{paper.title}</h3>
-                                                <p className="date-added">{paper.dateAdded}</p>
-                                                <button
-                                                    className="delete-btn"
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleDelete(paper.id);
-                                                    }}
-                                                >
-                                                    Delete
-                                                </button>
+                                        {isLoadingPapers ? (
+                                            <div className="loading-papers">
+                                                <span className="loading-spinner"></span>
+                                                <span>Loading papers...</span>
                                             </div>
-                                        ))}
+                                        ) : papers.length > 0 ? (
+                                            papers.map((paper) => (
+                                                <div
+                                                    key={paper.id}
+                                                    className="paper-card"
+                                                    onClick={() => handleSelectPaper(paper)}
+                                                >
+                                                    <h3>{paper.title}</h3>
+                                                    <p className="date-added">{paper.dateAdded}</p>
+                                                    <button
+                                                        className="delete-btn"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDelete(paper.id);
+                                                        }}
+                                                    >
+                                                        Delete
+                                                    </button>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="no-papers">
+                                                <p>No papers found. Upload a PDF to get started!</p>
+                                            </div>
+                                        )}
                                     </div>
                             
-                                    {selectedPaper && (
+                                    {selectedPaper && papers.length > 0 && (
                                         <div className="paper-viewer-container">
                                             <div className="pdf-container">
                                                 <div className="border-accent">
                                                     <div className="border-line"></div>
                                                     <div className="border-line-2"></div>
                                                 </div>
-                                                <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
+                                                <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`}>
                                                     <div className="pdf-viewer">
                                                         <Viewer
-                                                            fileUrl={selectedPaper.file}
+                                                            fileUrl={selectedPaper?.file}
                                                             plugins={[defaultLayoutPluginInstance, highlightPluginInstance]}
                                                             onPageChange={(e) => setCurrentPage(e.currentPage)}
                                                         />
@@ -1057,7 +1598,6 @@ If the excerpts don't contain enough information to answer the question directly
                                                         </div>
                                                     ) : (
                                                         <div>
-                                                            <Video size={24} />
                                                             <p>No video suggestions yet. Highlight text in the PDF to generate video suggestions.</p>
                                                         </div>
                                                     )}
@@ -1065,29 +1605,58 @@ If the excerpts don't contain enough information to answer the question directly
                                             </div>
                                         </div>
                                     )}
-
+                                    
                                     {session && (
                                         <>
-                                            <div className="cmd-k-hint">
-                                                Press <span className="kbd">⌘</span> + <span className="kbd">K</span> to search across papers
-                                            </div>
-
                                             <SearchPalette
+                                                ref={searchPaletteRef}
                                                 isOpen={isSearchOpen}
                                                 onClose={() => setIsSearchOpen(false)}
                                                 papers={papers}
                                                 onSearch={handleSearch}
                                                 selectedPaperIds={selectedPaperIds}
                                                 setSelectedPaperIds={setSelectedPaperIds}
+                                                isGeminiLoading={isGeminiLoading}
+                                                totalPages={totalPages}
+                                                setTotalPages={setTotalPages}
+                                                query={query}
+                                                setQuery={setQuery}
                                             />
                                         </>
                                     )}
+
+                                    {session && (
+                                        <div className="search-section">
+                                            <SearchHistory 
+                                                history={searchHistory}
+                                                onSelect={handleSelectHistory}
+                                                onDelete={handleDeleteHistory}
+                                                onToggleFavorite={handleToggleFavorite}
+                                            />
+                                        </div>
+                                    )}
+                                    <VoiceSearch 
+                                        onVoiceInput={handleVoiceInput}
+                                        selectedPaper={selectedPaper}
+                                        papers={papers}
+                                    />
                                 </>
                             )}
                         </div>
                     }
                 />
             </Routes>
+            <WorkspacePalette
+                ref={workspacePaletteRef}
+                isOpen={isWorkspaceOpen}
+                onClose={() => setIsWorkspaceOpen(false)}
+                onWorkspaceChange={handleWorkspaceChange}
+                currentWorkspace={currentWorkspace}
+            />
+            <div className="cmd-k-hint">
+                Press <span className="kbd">⌘</span> + <span className="kbd">K</span> to search
+                or <span className="kbd">⌘</span> + <span className="kbd">I</span> for workspaces
+            </div>
         </Router>
     );
 }

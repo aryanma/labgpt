@@ -1,0 +1,671 @@
+/* Add overlay for workspace palette */
+[cmdk-overlay] {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  z-index: 999;
+}
+
+.workspace-palette {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    max-width: 640px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    z-index: 1000;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+}
+
+.workspace-palette [cmdk-input],
+.workspace-form input,
+.workspace-form textarea {
+    width: 100%;
+    padding: 12px 20px;
+    font-size: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    border: none;
+    background: transparent;
+    outline: none;
+    color: rgb(55, 65, 81);
+}
+
+.workspace-palette [cmdk-list] {
+    max-height: 400px;
+    overflow: auto;
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+}
+
+.workspace-palette [cmdk-group] {
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+}
+
+.workspace-palette [cmdk-group-heading] {
+    color: #666;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 8px 0;
+    margin-top: 8px;
+}
+
+.workspace-palette [cmdk-item] {
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    margin: 2px 0;
+    cursor: pointer;
+    border-radius: 6px;
+    color: #333;
+    transition: all 0.2s ease;
+    gap: 12px;
+    margin-left: -12px;
+    margin-right: -12px;
+}
+
+.workspace-palette [cmdk-item][data-selected="true"] {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.workspace-form, .invite-form {
+    padding: 16px;
+}
+
+.workspace-form {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.workspace-form input,
+.workspace-form textarea {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.8);
+    margin: 8px 0;
+    box-sizing: border-box;
+}
+
+.workspace-form input::placeholder,
+.workspace-form textarea::placeholder {
+    color: rgb(156, 163, 175);
+}
+
+.workspace-form .form-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.workspace-form button,
+.invite-form button {
+    background: var(--perplexity-teal);
+    color: white;
+    border: none;
+    padding: 8px 24px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.workspace-form button:hover,
+.invite-form button:hover {
+    background: var(--perplexity-teal-dark, #3b7373);
+}
+
+.workspace-form button:disabled,
+.invite-form button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.member-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.member-role {
+    font-size: 12px;
+    color: #666;
+    background: rgba(0, 0, 0, 0.05);
+    padding: 2px 8px;
+    border-radius: 12px;
+    margin-left: 8px;
+}
+
+/* Add this to ensure proper padding and alignment */
+.workspace-palette [cmdk-group] {
+    padding: 0;
+}
+
+.workspace-palette [cmdk-group-heading] {
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 20px;
+    margin: 0;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+}
+
+/* Make sure we have the same header styling as search palette */
+.workspace-palette .search-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.workspace-palette .search-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    margin-right: 16px;
+}
+
+.close-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+.close-hint .kbd {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid #e5e7eb;
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #374151;
+}
+
+.close-hint .hint-text {
+    font-size: 0.75rem;
+    color: #6b7280;
+}
+
+.workspace-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.workspace-icon-btn {
+    background: none;
+    border: none;
+    padding: 4px;
+    color: #6b7280;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.workspace-icon-btn:hover {
+    background-color: #f3f4f6;
+    color: #4f46e5;
+}
+
+.invite-form {
+    display: flex;
+    gap: 8px;
+    padding: 16px;
+    align-items: center;
+}
+
+.invite-form input {
+    flex: 1;
+    height: 36px;
+    padding: 0 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    font-size: 14px;
+    background: white;
+    outline: none;
+}
+
+.invite-form button.send-invite-btn {
+    height: 36px;
+    padding: 0 16px;
+    background: var(--perplexity-teal);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.invite-form button.send-invite-btn:hover {
+    background: var(--perplexity-teal-dark, #3b7373);
+}
+
+.invite-form button.send-invite-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.back-button {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #666;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.back-button:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+}
+
+.invite-item {
+    width: 100%;
+    padding: 20px;
+    border-radius: 12px;
+    background-color: #f8fafc;
+    margin-bottom: 12px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.invite-info {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.invite-info strong {
+    display: block;
+    font-size: 18px;
+    color: #1e293b;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.invite-info span {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.invite-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.workspace-btn.accept {
+    background-color: #10b981;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.workspace-btn.accept:hover {
+    background-color: #059669;
+}
+
+.workspace-btn.reject {
+    background-color: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.workspace-btn.reject:hover {
+    background-color: #e2e8f0;
+    color: #475569;
+}
+
+.no-invites {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 48px 0;
+    color: #94a3b8;
+}
+
+.no-invites svg {
+    color: #cbd5e1;
+}
+
+.no-invites p {
+    font-size: 14px;
+    margin: 0;
+}
+
+/* Update the heading style */
+.workspace-palette [cmdk-group-heading] {
+    color: #64748b;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 20px;
+    margin: 0;
+    border-bottom: 1px solid #f1f5f9;
+    text-align: left;
+}
+
+/* Update the back button style */
+.workspace-back {
+    color: #64748b;
+    padding: 16px 20px;
+    margin-top: auto;
+    border-top: 1px solid #f1f5f9;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.workspace-back:hover {
+    background-color: #f8fafc;
+    color: #475569;
+}
+
+.workspace-search {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    background: transparent;
+}
+
+.workspace-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.workspace-item:hover {
+    background-color: #f3f4f6;
+}
+
+.workspace-role {
+    margin-left: auto;
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: capitalize;
+}
+
+.workspace-action {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    color: #4f46e5;
+    transition: background-color 0.2s;
+    margin: 0 4px;
+}
+
+.workspace-action:hover {
+    background-color: #f3f4f6;
+}
+
+.workspace-action.exit {
+    color: #ef4444;
+}
+
+.workspace-input {
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.workspace-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.workspace-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+
+.workspace-btn.primary {
+    background-color: #4f46e5;
+    color: white;
+    border: none;
+}
+
+.workspace-btn.primary:hover {
+    background-color: #4338ca;
+}
+
+.workspace-btn.secondary {
+    background-color: #f3f4f6;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+}
+
+.workspace-btn.secondary:hover {
+    background-color: #e5e7eb;
+}
+
+.workspace-btn.accept {
+    background-color: #10b981;
+    color: white;
+    border: none;
+}
+
+.workspace-btn.accept:hover {
+    background-color: #059669;
+}
+
+.workspace-btn.reject {
+    background-color: #ef4444;
+    color: white;
+    border: none;
+}
+
+.workspace-btn.reject:hover {
+    background-color: #dc2626;
+}
+
+.workspace-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.members-section {
+    padding: 16px;
+}
+
+.members-list {
+    margin-top: 16px;
+}
+
+.member-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background-color: #f9fafb;
+    margin-bottom: 8px;
+}
+
+.member-role {
+    font-size: 12px;
+    color: #6b7280;
+    text-transform: capitalize;
+    padding: 2px 8px;
+    background-color: #e5e7eb;
+    border-radius: 12px;
+}
+
+.invites-list {
+    padding: 16px;
+    width: 100%;
+    max-width: 480px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.invite-item {
+    width: 100%;
+    padding: 20px;
+    border-radius: 12px;
+    background-color: #f8fafc;
+    margin-bottom: 12px;
+    border: 1px solid #e2e8f0;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.invite-item:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.invite-info {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.invite-info strong {
+    display: block;
+    font-size: 18px;
+    color: #1e293b;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+
+.invite-info span {
+    font-size: 14px;
+    color: #64748b;
+}
+
+.invite-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.workspace-btn.accept {
+    background-color: #10b981;
+    color: white;
+    border: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.workspace-btn.accept:hover {
+    background-color: #059669;
+}
+
+.workspace-btn.reject {
+    background-color: #f1f5f9;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+}
+
+.workspace-btn.reject:hover {
+    background-color: #e2e8f0;
+    color: #475569;
+}
+
+.no-invites {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 48px 0;
+    color: #94a3b8;
+}
+
+.no-invites svg {
+    color: #cbd5e1;
+}
+
+.no-invites p {
+    font-size: 14px;
+    margin: 0;
+} 

@@ -10,6 +10,7 @@
   display: flex;
   flex-direction: column;
   color: #000000;
+  overflow-x: hidden;  /* Prevent horizontal scroll */
 }
 
 .App-header {
@@ -22,6 +23,21 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.header-subtitle {
+  color: #6b7280;
+  font-size: 14px;
+  margin: 0;
+  font-weight: 400;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .App-header h1 {
@@ -160,22 +176,16 @@
 .paper-viewer-container {
   display: flex;
   gap: 1.5rem;
-  padding: 1.5rem;
-  margin: 0 auto;
-  width: 100%;
-  max-width: 1600px;
-  background: #ffffff;
-  box-sizing: border-box;
+  height: calc(100vh - 96px);
+  padding: 0 1.5rem;
 }
 
 .pdf-container {
   flex: 1;
-  background: #ffffff;
-  border-radius: 0.75rem;
-  height: calc(100vh - 200px);
-  position: relative;
-  border: 1px solid #e5e7eb;
+  min-width: 0;
+  height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 .right-panel {
@@ -184,16 +194,17 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  height: calc(100vh - 200px);
+  height: calc(100vh - 96px);
   position: sticky;
   top: 100px;
+  overflow: hidden; /* Prevent panel overflow */
 }
 
 .notes-tab, .video-suggestions-tab {
   background: #ffffff;
   border-radius: 1rem;
   padding: 1.25rem;
-  height: calc(50% - 0.75rem);
+  height: calc(50% - 0.5rem); /* Exactly half height minus half the gap */
   border: 1px solid #e5e7eb;
   overflow-y: auto;
   display: flex;
@@ -464,15 +475,17 @@
 .pdf-viewer {
   height: 100%;
   overflow: auto;
+  flex: 1;
 }
 
 /* Style the PDF viewer's internal elements */
 .rpv-core__viewer {
   height: 100% !important;
+  background: white;
 }
 
 .rpv-core__inner-pages {
-  padding: 1rem !important;
+  padding: 0 !important;
 }
 
 /* Style the video suggestions */
@@ -1003,4 +1016,209 @@
   gap: 8px;
   flex: 1;
   margin-right: 16px;
+}
+
+/* Loading States */
+.search-loading {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.95);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    z-index: 1000;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.token-warning {
+    background: #fff3cd;
+    border: 1px solid #ffeeba;
+    color: #856404;
+    padding: 1rem;
+    margin: 1rem 0;
+    border-radius: 0.25rem;
+    font-size: 0.9rem;
+}
+
+/* Update Search History UI */
+.search-history {
+    position: fixed;
+    right: 20px;
+    top: 80px;
+    width: 300px;
+    background: rgba(255, 255, 255, 0.4); /* Even more translucent background */
+    backdrop-filter: blur(12px); /* Increased blur for better readability */
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02); /* Softer shadow */
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    border: 1px solid rgba(0, 0, 0, 0.03); /* Lighter border */
+    transition: all 0.2s ease;
+}
+
+.search-history:hover {
+    background: rgba(255, 255, 255, 0.6); /* Still translucent on hover */
+}
+
+/* Update the header to be more subtle */
+.search-history-header {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: rgba(0, 0, 0, 0.5); /* More subtle text */
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Make items more subtle by default */
+.search-history-item {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.03);
+    cursor: pointer;
+    transition: all 0.2s;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.search-history-item:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Adjust text colors to be more subtle */
+.search-history-query {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: rgba(0, 0, 0, 0.7);
+    margin-bottom: 0.25rem;
+}
+
+.search-history-meta {
+    font-size: 0.8rem;
+    color: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.search-history-actions {
+    display: flex;
+    gap: 0.5rem;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.search-history-item:hover .search-history-actions {
+    opacity: 1;
+}
+
+.action-button {
+    padding: 4px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #999;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.action-button:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #666;
+}
+
+.action-button.favorite {
+    color: #ffd700;
+}
+
+.search-section {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.search-controls {
+    margin-top: 16px;
+    margin-bottom: 20px;
+    width: 100%;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.current-workspace {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 4px 12px;
+    background: rgba(0, 163, 163, 0.1);
+    border-radius: 6px;
+}
+
+/* Ensure content scrolls properly within tabs */
+.notes-list, .video-suggestions-container {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.loading-papers {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 200px;
+    gap: 1rem;
+}
+
+.loading-papers .loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #3498db;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+.loading-papers span:last-child {
+    color: #666;
+    font-size: 1rem;
+}
+
+.no-papers {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 200px;
+    text-align: center;
+    color: #666;
+    gap: 1rem;
+}
+
+.no-papers p {
+    font-size: 1.1rem;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
