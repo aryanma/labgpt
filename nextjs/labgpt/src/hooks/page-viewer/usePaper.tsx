@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/utils/supabase/supabaseClient";
-import { Paper } from "@/core/workspaces/types/Workspace";
+import { Paper } from "@/types/Workspace";
 
 export default function usePaper(paperId: string) {
     const [paper, setPaper] = useState<Paper | null>(null);

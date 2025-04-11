@@ -1,6 +1,6 @@
 'use client';
 
-import usePaper from "@/core/page-viewer/hooks/usePaper";
+import usePaper from "@/hooks/page-viewer/usePaper";
 import { Worker, Viewer } from "@react-pdf-viewer/core";
 import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
 import { highlightPlugin } from "@react-pdf-viewer/highlight";

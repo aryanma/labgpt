@@ -1,8 +1,8 @@
 'use client';
 
 import React, { use, useState, useRef, useEffect } from "react";
-import PdfViewer from "@/core/page-viewer/components/PdfViewer";
-import NewChatInterface from "@/core/page-viewer/components/ChatInterface";
+import PdfViewer from "@/components/PDFView/PdfViewer";
+import NewChatInterface from "@/components/ChatInterface/ChatInterface";
 
 interface PageProps {
     params: Promise<{

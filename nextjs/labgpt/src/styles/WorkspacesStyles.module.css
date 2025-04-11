@@ -1,9 +1,3 @@
-.workspacesContainer {
-
-  min-height: 100vh;
-  background-color: var(--background-color);
-} 
-
 .logoutBtn {
   background: transparent;
   color: #dc2626;
@@ -16,6 +10,12 @@
   transition: 0.2s ease;
   border: 1px solid #fee2e2;
 }
+
+.workspacesContainer {
+
+  min-height: 100vh;
+  background-color: var(--background-color);
+} 
 
 .uploadContainer {
   max-width: 800px;

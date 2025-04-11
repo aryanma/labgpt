@@ -1,5 +1,5 @@
-import useWorkspace from "@/core/workspaces/hooks/useWorkspace";
-import { Paper } from "@/core/workspaces/types/Workspace";
+import useWorkspace from "@/hooks/workspace/useWorkspace";
+import { Paper } from "@/types/Workspace";
 import { useRouter } from "next/navigation";
 interface PaperSelectProps {
     workspaceId: string | undefined;

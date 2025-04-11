@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { type Note, noteService } from "../services/note-service"
+import { type Note, noteService } from "@/services/note-service"
 
 export function useNotes(paperId: string) {
   const [notes, setNotes] = useState<Note[]>([])

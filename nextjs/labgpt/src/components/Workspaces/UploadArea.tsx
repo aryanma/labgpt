@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import styles from "@/core/workspaces/style.module.css";
+import styles from "@/styles/WorkspacesStyles.module.css";
 
 export default function UploadArea() {
     const fileInputRef = useRef<HTMLInputElement>(null);

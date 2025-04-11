@@ -1,6 +1,6 @@
-import { useNotes } from "@/core/page-viewer/hooks/useNotes"
-import { NotesContainer } from "@/core/page-viewer/components/ChatInterface/NotesContainer"
-import { StatusContainer } from "@/core/page-viewer/components/ChatInterface/StatusContainer"
+import { useNotes } from "@/hooks/page-viewer/useNotes"
+import { NotesContainer } from "@/components/ChatInterface/subcomponents/NotesContainer"
+import { StatusContainer } from "@/components/ChatInterface/subcomponents/StatusContainer"
 
 interface ChatInterfaceProps {
   paperId: string

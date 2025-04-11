@@ -1,4 +1,4 @@
-import MainHeader from "@/core/global/components/MainHeader/MainHeader";
+import MainHeader from "@/components/MainHeader/MainHeader";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {

@@ -1,6 +1,6 @@
 import { Pencil } from "lucide-react"
-import type { Note } from "@/core/page-viewer/services/note-service"
-import { NoteCard } from "@/core/page-viewer/components/ChatInterface/NoteCard"
+import type { Note } from "@/services/note-service"
+import { NoteCard } from "@/components/ChatInterface/subcomponents/NoteCard"
 
 interface NotesContainerProps {
   notes: Note[]

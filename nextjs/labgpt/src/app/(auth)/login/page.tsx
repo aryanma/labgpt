@@ -1,10 +1,10 @@
 "use client"
 
-import { Button } from "@/core/global/components/ui/button"
-import { Input } from "@/core/global/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/core/global/components/ui/card"
-import { Separator } from "@/core/global/components/ui/separator"
-import { useAuth } from "@/core/global/hooks/useAuth"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { useAuth } from "@/hooks/auth/useAuth"
 
 export default function Login() {
     const { 

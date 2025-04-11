@@ -1,9 +1,9 @@
 "use client"
-import { useAuth } from "@/core/global/hooks/useAuth";
-import useWorkspace from "@/core/workspaces/hooks/useWorkspace";
-import UploadArea from "@/core/workspaces/components/UploadArea";
-import styles from "@/core/workspaces/style.module.css";
-import PaperSelect from "@/core/workspaces/components/PaperSelect";
+import { useAuth } from "@/hooks/auth/useAuth";
+import useWorkspace from "@/hooks/workspace/useWorkspace";
+import UploadArea from "@/components/Workspaces/UploadArea";
+import styles from "@/styles/WorkspacesStyles.module.css";
+import PaperSelect from "@/components/Workspaces/PaperSelect";
 import { use } from "react";
 
 interface PageProps {
