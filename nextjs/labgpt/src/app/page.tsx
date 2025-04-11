@@ -1,10 +1,13 @@
 "use client"
-import useWorkspace from "@/global/hooks/useWorkspace";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function Home() {
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { papers, isLoadingPapers, loadWorkspacePapers } = useWorkspace();
+  const router = useRouter();
+  
+  useEffect(() => {
+    router.push("/workspaces");
+  }, [router]);
 
   return (
     <div className="">
