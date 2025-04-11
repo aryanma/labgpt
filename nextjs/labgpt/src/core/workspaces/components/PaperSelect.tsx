@@ -24,7 +24,7 @@ export default function PaperSelect({ workspaceId }: PaperSelectProps) {
                     <div className="w-6 h-6 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                     <span className="text-gray-600">Loading papers...</span>
                 </div>
-            ) : papers.length > 0 ? (
+            ) : papers && papers.length > 0 ? (
                 papers.map((paper) => (
                     <div
                         key={paper.id}
