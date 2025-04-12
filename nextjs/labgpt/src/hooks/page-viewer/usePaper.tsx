@@ -9,7 +9,7 @@ export default function usePaper(paperId: string) {
 
     useEffect(() => {
         const supabase = createClient();
-        console.log(paperId);
+        
         async function fetchPaper() {
             try {
                 const { data, error } = await supabase
@@ -21,7 +21,7 @@ export default function usePaper(paperId: string) {
                 if (error) {
                     throw error;
                 }
-                console.log(data);
+                
                 setPaper(data);
 
                 if (data) {

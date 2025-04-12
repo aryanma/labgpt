@@ -1,5 +1,5 @@
 import { Pencil } from "lucide-react"
-import type { Note } from "@/services/note-service"
+import type { Note } from "@/services/client/note-service"
 import { NoteCard } from "@/components/ChatInterface/subcomponents/NoteCard"
 
 interface NotesContainerProps {

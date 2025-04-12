@@ -1,7 +1,7 @@
 "use client"
 
 import { Pin, Trash2 } from "lucide-react"
-import type { Note } from "@/services/note-service"
+import type { Note } from "@/services/client/note-service"
 import ReactMarkdown from "react-markdown"
 
 interface NoteCardProps {

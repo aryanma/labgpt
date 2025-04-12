@@ -1,36 +1,6 @@
 import { VideoSuggestion } from "@/types/VideoSuggestions";
 import { useEffect, useState } from "react";
-
-const hardcodedSuggestions: VideoSuggestion[] = [
-    {
-        id: "1",
-        title: "Video 1",
-        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        view_count: 1000,
-        duration: "10:00"
-    },
-    {
-        id: "2",
-        title: "Video 2",
-        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        view_count: 2000,
-        duration: "10:00"
-    },
-    {
-        id: "3",
-        title: "Video 3",
-        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        view_count: 2000,
-        duration: "10:00"
-    },
-    {
-        id: "4",
-        title: "Video 4",
-        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-        view_count: 2000,
-        duration: "10:00"
-    }
-]
+import { ytService } from '@/services/client/yt-service';
 
 export const useSuggestions = (isOpen: boolean) => {
     const [suggestions, setSuggestions] = useState<VideoSuggestion[]>([]);
@@ -38,11 +8,10 @@ export const useSuggestions = (isOpen: boolean) => {
 
     const fetchSuggestions = async () => {
         setLoading(true);
-        // Simulate API delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        const response = await ytService.findVideos("123");
 
         setLoading(false);
-        return hardcodedSuggestions;
+        return response;
     };
 
     useEffect(() => {
