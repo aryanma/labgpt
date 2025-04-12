@@ -2,7 +2,7 @@
 
 import React, { use, useState, useRef, useEffect } from "react";
 import PdfViewer from "@/components/PDFView/PdfViewer";
-import NewChatInterface from "@/components/ChatInterface/ChatInterface";
+import NewChatInterface from "@/components/ChatInterface";
 
 interface PageProps {
     params: Promise<{
