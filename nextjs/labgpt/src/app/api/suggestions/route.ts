@@ -21,6 +21,7 @@ export async function GET(
             success: true,
             data: videoSuggestions
         });
+
     } catch {
         return NextResponse.json({
             success: false,
