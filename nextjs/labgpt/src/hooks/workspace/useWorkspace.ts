@@ -11,7 +11,7 @@ type Paper = {
     date_added: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+ 
 type Workspace = {
     id: string;
     name: string;
@@ -20,9 +20,14 @@ type Workspace = {
     created_at: string;
 }
 
-export default function useWorkspace(workspaceId: string | undefined) {
+export default function useWorkspace(
+    workspaceId: string | undefined,
+    shouldLoadWorkspaces: boolean = false
+) {
     const [papers, setPapers] = useState<Paper[]>([]);
     const [isLoadingPapers, setIsLoadingPapers] = useState(false);
+    const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+    const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(false);
 
     const loadWorkspacePapers = useCallback(async (workspaceId: string) => {
         setIsLoadingPapers(true);
@@ -53,5 +58,29 @@ export default function useWorkspace(workspaceId: string | undefined) {
         }
     }, [workspaceId, loadWorkspacePapers]);
 
-    return { papers, isLoadingPapers };
+
+    const loadWorkspaces = useCallback(async () => {
+        setIsLoadingWorkspaces(true);
+        try {
+            const supabase = createClient();
+            const { data } = await supabase.from('workspaces').select('*');
+            return data as Workspace[];
+        } catch (error) {
+            console.error("Error loading workspaces: ", error);
+        } finally {
+            setIsLoadingWorkspaces(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (shouldLoadWorkspaces) {
+            loadWorkspaces().then((data) => {
+                if (data) {
+                    setWorkspaces(data);
+                }
+            });
+        }
+    }, [loadWorkspaces, shouldLoadWorkspaces]);
+
+    return { papers, isLoadingPapers, workspaces, isLoadingWorkspaces };
 }
