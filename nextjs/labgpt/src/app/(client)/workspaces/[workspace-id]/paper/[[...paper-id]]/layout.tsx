@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import ToolBar from "@/components/ToolBar/Toolbar";
-import SearchShortcut from "@/components/Workspaces/Search/SearchShortcut";
-import SearchPopup from "@/components/Workspaces/Search/SearchPopup";
 import { use } from "react";
 
 export const metadata: Metadata = {
@@ -11,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function WorkspacesLayout({
   children,
-  params
+  params,
 }: Readonly<{
   children: React.ReactNode;
   params: Promise<{
@@ -23,12 +21,8 @@ export default function WorkspacesLayout({
 
 	return (
 		<>
-			<ToolBar />
+			<ToolBar workspaceId={workspaceId} />
 			{children}
-			<SearchShortcut />
-			<SearchPopup 
-				workspaceId={workspaceId}
-			/>
 		</>
 	);
 }

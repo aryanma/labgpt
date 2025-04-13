@@ -10,7 +10,7 @@ export default function PaperSelect({ workspaceId }: PaperSelectProps) {
     const { papers, isLoadingPapers } = useWorkspace(workspaceId);
 
     const handleSelectPaper = (paper: Paper) => {
-        router.push(`/pages/${paper.id}`);
+        router.push(`/workspaces/${workspaceId}/paper/${paper.id}`);
     }
 
     const handleDelete = (paperId: string) => {

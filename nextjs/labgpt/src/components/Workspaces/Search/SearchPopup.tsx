@@ -1,7 +1,7 @@
 "use client"
 
 import { Check, Loader, Search } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useRef, useState } from "react"
 import styles from "@/styles/SearchStyles.module.css"
 import { Paper } from "@/types/Paper"
 import useWorkspace from "@/hooks/workspace/useWorkspace"
@@ -30,30 +30,22 @@ const SAMPLE_PAPERS: Paper[] = [
 
 export default function SearchPopup({ 
     workspaceId,
+    isOpen,
+    setIsOpen
  }: { 
     workspaceId: string,
+    isOpen: boolean,
+    setIsOpen: (isOpen: boolean) => void
  }) {
     // State management
     const [selectedPaperIds, setSelectedPaperIds] = useState<string[]>([])
     const [query, setQuery] = useState("")
     const [isSearching, setIsSearching] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
-    const [isOpen, setIsOpen] = useState(false)
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { papers, isLoadingPapers } = useWorkspace(workspaceId)
 
-    // Handlers
-    useEffect(() => {
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                setIsOpen(false)
-            }
-        };
-
-        document.addEventListener('keydown', handleEsc);
-
-        return () => document.removeEventListener('keydown', handleEsc);
-    }, [isOpen]);
+    // Return null if not open
     
     const handlePaperToggle = (paperId: string) => {
         setSelectedPaperIds(prev => 
@@ -78,10 +70,13 @@ export default function SearchPopup({
   
     // Derived values
     const isSearchDisabled = !query.trim() || selectedPaperIds.length === 0 || isSearching
+    
+    if (!isOpen) return null;
 
     return (
         <div 
         className={`search-overlay ${styles.searchOverlay}`} 
+        onClick={() => setIsOpen(false)}
         >
             <div 
                 className={styles.searchContainer}
