@@ -147,6 +147,11 @@ const WorkspacePalette = forwardRef(({ isOpen, onClose, onWorkspaceChange, curre
     const navigateTo = (newPage) => {
         setPageHistory(prev => [...prev, newPage]);
         setPage(newPage);
+        
+        // Load members when navigating to members page
+        if (newPage === 'members' && selectedWorkspace) {
+            loadWorkspaceMembers(selectedWorkspace.id);
+        }
     };
 
     const goBack = () => {
@@ -171,10 +176,12 @@ const WorkspacePalette = forwardRef(({ isOpen, onClose, onWorkspaceChange, curre
     }, [isOpen, pageHistory]);
 
     const handleWorkspaceSelect = (workspace) => {
-        setSelectedWorkspace(workspace);
-        loadWorkspaceMembers(workspace.id);
-        onWorkspaceChange(workspace);
-        onClose();
+        if (page === 'root') {
+            setSelectedWorkspace(workspace);
+            loadWorkspaceMembers(workspace.id);
+            onWorkspaceChange(workspace);
+            onClose();
+        }
     };
 
     const handleInvite = async (inviteId, accept) => {
@@ -311,6 +318,7 @@ const WorkspacePalette = forwardRef(({ isOpen, onClose, onWorkspaceChange, curre
                                     <button 
                                         className="workspace-icon-btn"
                                         onClick={(e) => {
+                                            e.preventDefault();
                                             e.stopPropagation();
                                             setSelectedWorkspace(workspace);
                                             navigateTo('members');
@@ -388,7 +396,7 @@ const WorkspacePalette = forwardRef(({ isOpen, onClose, onWorkspaceChange, curre
                     </Command.Group>
                 )}
 
-                {page === 'members' && currentWorkspace && (
+                {page === 'members' && selectedWorkspace && (
                     <Command.Group heading="MANAGE MEMBERS">
                         <div className="members-section">
                             <div className="invite-form">

@@ -305,6 +305,11 @@
     flex-direction: column;
 }
 
+.invite-item:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
 .invite-info {
     margin-bottom: 20px;
     display: flex;
@@ -332,7 +337,7 @@
 }
 
 .workspace-btn.accept {
-    background-color: #10b981;
+    background: var(--perplexity-teal);
     color: white;
     border: none;
     padding: 6px 12px;
@@ -346,7 +351,7 @@
 }
 
 .workspace-btn.accept:hover {
-    background-color: #059669;
+    background: var(--perplexity-teal-dark, #3b7373);
 }
 
 .workspace-btn.reject {
@@ -479,60 +484,34 @@
 }
 
 .workspace-btn {
-    padding: 6px 12px;
-    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
+    border: none;
 }
 
 .workspace-btn.primary {
-    background-color: #4f46e5;
+    background: var(--perplexity-teal);
     color: white;
-    border: none;
 }
 
 .workspace-btn.primary:hover {
-    background-color: #4338ca;
+    background: var(--perplexity-teal-dark, #3b7373);
 }
 
 .workspace-btn.secondary {
-    background-color: #f3f4f6;
+    background: #f3f4f6;
     color: #374151;
-    border: 1px solid #e5e7eb;
 }
 
 .workspace-btn.secondary:hover {
-    background-color: #e5e7eb;
-}
-
-.workspace-btn.accept {
-    background-color: #10b981;
-    color: white;
-    border: none;
-}
-
-.workspace-btn.accept:hover {
-    background-color: #059669;
-}
-
-.workspace-btn.reject {
-    background-color: #ef4444;
-    color: white;
-    border: none;
-}
-
-.workspace-btn.reject:hover {
-    background-color: #dc2626;
-}
-
-.workspace-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    background: #e5e7eb;
 }
 
 .members-section {
@@ -616,7 +595,7 @@
 }
 
 .workspace-btn.accept {
-    background-color: #10b981;
+    background: var(--perplexity-teal);
     color: white;
     border: none;
     padding: 6px 12px;
@@ -630,7 +609,7 @@
 }
 
 .workspace-btn.accept:hover {
-    background-color: #059669;
+    background: var(--perplexity-teal-dark, #3b7373);
 }
 
 .workspace-btn.reject {

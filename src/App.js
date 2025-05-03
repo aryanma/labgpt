@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import { highlightPlugin } from '@react-pdf-viewer/highlight';
-import { Pencil, Trash2, Pin, Video, ExternalLink, Clock, Eye } from 'lucide-react';
+import { Pencil, Trash2, Pin, Video, ExternalLink, Clock, Eye, Search } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import ResetPassword from './ResetPassword';
@@ -49,6 +49,7 @@ function App() {
     const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
     const [currentWorkspace, setCurrentWorkspace] = useState(null);
     const workspacePaletteRef = useRef(null);
+    const [isSearchHistoryOpen, setIsSearchHistoryOpen] = useState(false);
 
     const defaultLayoutPluginInstance = defaultLayoutPlugin();
     const highlightPluginInstance = highlightPlugin({
@@ -749,13 +750,11 @@ Please provide a clear and concise response, focusing on the specific question w
     const handleForgotPassword = async () => {
         if (!email) {
             alert('Please enter your email first!');
-            return;
         }
-    
+        const redirectBase = process.env.REACT_APP_REDIRECT_URL || window.location.origin;
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/reset-password`
-        });        
-    
+            redirectTo: `${redirectBase}/reset-password`
+        });
         if (error) {
             alert(error.message);
         } else {
@@ -954,10 +953,68 @@ Please provide relevant excerpts and explanations from these papers that answer 
     };
 
     // Update handleSelectHistory to set the search result directly
-    const handleSelectHistory = (item) => {
+    const handleSelectHistory = async (item) => {
+        // First ensure we have all the papers loaded
+        const missingPaperIds = item.paper_ids.filter(id => !papers.find(p => p.id === id));
+        
+        if (missingPaperIds.length > 0) {
+            try {
+                // Fetch missing papers from Supabase
+                const { data: missingPapers, error } = await supabase
+                    .from('papers')
+                    .select('*')
+                    .in('id', missingPaperIds);
+                    
+                if (error) {
+                    console.error('Error fetching missing papers:', error);
+                    alert('Error loading papers from history');
+                    return;
+                }
+
+                // Transform papers to include file URLs
+                const transformedPapers = await Promise.all(missingPapers.map(async paper => {
+                    try {
+                        const { data: fileData, error: fileError } = await supabase.storage
+                            .from('pdfs')
+                            .download(paper.file_path);
+
+                        if (fileError) throw fileError;
+
+                        const blobUrl = URL.createObjectURL(fileData);
+                        return {
+                            ...paper,
+                            file: blobUrl,
+                            dateAdded: new Date(paper.created_at).toLocaleDateString('en-US', {
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                            })
+                        };
+                    } catch (fileError) {
+                        console.error('Error processing file for paper:', paper.id, fileError);
+                        return null;
+                    }
+                }));
+
+                // Filter out any papers that failed to load
+                const validPapers = transformedPapers.filter(Boolean);
+                
+                // Add missing papers to the papers array
+                setPapers(prevPapers => [...prevPapers, ...validPapers]);
+                
+                // Wait a tick to ensure papers state is updated
+                await new Promise(resolve => setTimeout(resolve, 0));
+            } catch (error) {
+                console.error('Error loading papers:', error);
+                alert('Error loading papers from history');
+                return;
+            }
+        }
+
         setQuery(item.query);
         setSelectedPaperIds(item.paper_ids);
         setIsSearchOpen(true);
+        
         // Pass the stored response to SearchPalette by setting its state
         if (searchPaletteRef.current) {
             searchPaletteRef.current.setSearchResult(item.response);
@@ -1418,6 +1475,14 @@ Please provide relevant excerpts and explanations from these papers that answer 
                                             <span>Workspace: {currentWorkspace.name}</span>
                                         </div>
                                     )}
+                                    <button
+                                        className="search-history-toggle-btn"
+                                        title="Toggle search history"
+                                        onClick={() => setIsSearchHistoryOpen((open) => !open)}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                                    >
+                                        <Clock size={22} color="#00A3A3" />
+                                    </button>
                                 </div>
                             </header>
 
@@ -1625,7 +1690,7 @@ Please provide relevant excerpts and explanations from these papers that answer 
                                         </>
                                     )}
 
-                                    {session && (
+                                    {session && isSearchHistoryOpen && (
                                         <div className="search-section">
                                             <SearchHistory 
                                                 history={searchHistory}

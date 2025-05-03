@@ -824,12 +824,23 @@
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: flex-start;
   justify-content: center;
-  padding-top: 100px;
-  z-index: 1001;
-  backdrop-filter: blur(4px);
-  animation: fadeIn 0.2s ease-out;
+  align-items: flex-start;
+  padding-top: 10vh;
+  z-index: 1000;
+}
+
+/* Add styles to ensure Ant Design modals appear above the search overlay */
+.ant-modal-wrap {
+  z-index: 1100 !important;
+}
+
+.ant-modal-mask {
+  z-index: 1050 !important;
+}
+
+.ant-modal {
+  z-index: 1100 !important;
 }
 
 .search-container {
@@ -911,24 +922,72 @@
   color: #6b7280;
 }
 
-.search-button {
-  background: var(--perplexity-teal);
-  color: white;
-  padding: 8px 16px;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  border: none;
-  cursor: pointer;
-  transition: all 0.2s ease;
+.search-button, 
+.generate-button,
+.modal-button {
+    background: var(--perplexity-teal);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-.search-button:hover {
-  background: var(--perplexity-teal-hover);
+.search-button:hover, 
+.generate-button:hover,
+.modal-button:hover {
+    background: var(--perplexity-teal-hover);
 }
 
-.search-button:disabled {
-  background: #d1d5db;
-  cursor: not-allowed;
+.search-button:disabled, 
+.generate-button:disabled,
+.modal-button:disabled {
+    background: #d1d5db;
+    cursor: not-allowed;
+}
+
+/* Modal styles for Overleaf integration */
+.modal-content {
+    padding: 24px;
+}
+
+.modal-content select,
+.modal-content input {
+    width: 100%;
+    padding: 8px 12px;
+    margin: 8px 0 16px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 24px;
+}
+
+.modal-button.secondary {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.modal-button.secondary:hover {
+    background: #e5e7eb;
+}
+
+.modal-button.primary {
+    background: var(--perplexity-teal);
+}
+
+.modal-button.primary:hover {
+    background: var(--perplexity-teal-hover);
 }
 
 /* Add these styles for search results */
@@ -1221,4 +1280,94 @@
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+.search-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.overleaf-button {
+    background-color: #1a73e8;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: background-color 0.2s;
+}
+
+.overleaf-button:hover {
+    background-color: #1557b0;
+}
+
+.overleaf-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.overleaf-modal .ant-modal-content {
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.overleaf-modal .ant-modal-header {
+    border-bottom: 1px solid #e8e8e8;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.overleaf-modal .ant-modal-footer {
+    border-top: 1px solid #e8e8e8;
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+
+.overleaf-modal .ant-select {
+    width: 100%;
+}
+
+.overleaf-modal .ant-input {
+    margin-top: 0.5rem;
+}
+
+/* LaTeX Generator Styles */
+.latex-generator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.latex-generator .generate-button {
+  background: var(--perplexity-teal);
+  color: white;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.latex-generator .generate-button:hover {
+  background: var(--perplexity-teal-hover);
+}
+
+.latex-generator .generate-button:disabled {
+  background: #d1d5db;
+  cursor: not-allowed;
+}
+
+.latex-generator .error-message {
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-top: 4px;
 }
