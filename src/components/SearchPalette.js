@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Search, Check, Loader } from 'lucide-react';
-import LatexGenerator from './LatexGenerator';
 
 const SearchPalette = forwardRef(({ 
     isOpen, 
@@ -208,13 +207,6 @@ const SearchPalette = forwardRef(({
 
                         <div className="search-footer">
                             <div className="search-actions">
-                                <LatexGenerator 
-                                    searchResults={{
-                                        papers: selectedPapers,
-                                        query: query,
-                                        result: searchResult
-                                    }}
-                                />
                                 <button
                                     className="search-button"
                                     onClick={handleNewSearch}
