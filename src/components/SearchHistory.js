@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Star, Trash2 } from 'lucide-react';
+import { Star, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const SearchHistory = ({ history, onSelect, onDelete, onToggleFavorite }) => {
@@ -11,7 +11,6 @@ const SearchHistory = ({ history, onSelect, onDelete, onToggleFavorite }) => {
         <div className="search-history">
             <div className="search-history-header">
                 <span>Search History</span>
-                <Clock size={16} />
             </div>
             {history.map((item) => (
                 <div key={item.id} className="search-history-item">

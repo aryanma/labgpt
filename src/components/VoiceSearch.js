@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { Mic, Search, Check, X } from 'lucide-react';
 import 'regenerator-runtime/runtime';
@@ -21,7 +21,31 @@ const VoiceSearch = ({ onVoiceInput, selectedPaper, papers = [] }) => {
         if (selectedPaper && !selectedPaperIds.includes(selectedPaper.id)) {
             setSelectedPaperIds([selectedPaper.id]);
         }
-    }, [selectedPaper]);
+    }, [selectedPaper, selectedPaperIds]);
+
+    // Move these two functions above the useEffect that uses them
+    const handleCancelSearch = useCallback(() => {
+        SpeechRecognition.stopListening();
+        setIsListening(false);
+        setShowPaperSelection(false);
+        setSearchQuery('');
+        resetTranscript();
+    }, [resetTranscript]);
+
+    const handleExecuteSearch = useCallback(() => {
+        if (searchQuery && selectedPaperIds.length > 0) {
+            onVoiceInput({
+                type: 'search',
+                query: searchQuery,
+                paperIds: selectedPaperIds
+            });
+            // Reset states
+            SpeechRecognition.stopListening();
+            setIsListening(false);
+            setShowPaperSelection(false);
+            setSearchQuery('');
+        }
+    }, [searchQuery, selectedPaperIds, onVoiceInput]);
 
     // Process voice commands
     useEffect(() => {
@@ -102,7 +126,7 @@ const VoiceSearch = ({ onVoiceInput, selectedPaper, papers = [] }) => {
                 resetTranscript();
             }
         }
-    }, [listening, transcript, selectedPaper, papers, showPaperSelection, searchQuery]);
+    }, [listening, transcript, selectedPaper, papers, showPaperSelection, searchQuery, selectedPaperIds, handleCancelSearch, handleExecuteSearch, onVoiceInput, resetTranscript]);
 
     const handleToggleListening = () => {
         if (isListening) {
@@ -130,30 +154,6 @@ const VoiceSearch = ({ onVoiceInput, selectedPaper, papers = [] }) => {
                 ? prev.filter(id => id !== paperId)
                 : [...prev, paperId]
         );
-    };
-
-    const handleExecuteSearch = () => {
-        if (searchQuery && selectedPaperIds.length > 0) {
-            onVoiceInput({
-                type: 'search',
-                query: searchQuery,
-                paperIds: selectedPaperIds
-            });
-            
-            // Reset states
-            SpeechRecognition.stopListening();
-            setIsListening(false);
-            setShowPaperSelection(false);
-            setSearchQuery('');
-        }
-    };
-
-    const handleCancelSearch = () => {
-        SpeechRecognition.stopListening();
-        setIsListening(false);
-        setShowPaperSelection(false);
-        setSearchQuery('');
-        resetTranscript();
     };
 
     if (!browserSupportsSpeechRecognition) {

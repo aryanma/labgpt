@@ -1,14 +1,13 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Command } from 'cmdk';
 import { supabase } from '../supabaseClient';
-import { Users, Plus, Settings, UserPlus, Trash2, ChevronLeft, Check, X, DoorOpen, Mail } from 'lucide-react';
+import { Users, Plus, UserPlus, ChevronLeft, Check, X, DoorOpen, Mail } from 'lucide-react';
 import '../styles/WorkspacePalette.css';
 
 const WorkspacePalette = forwardRef(({ isOpen, onClose, onWorkspaceChange, currentWorkspace }, ref) => {
     const [search, setSearch] = useState('');
     const [page, setPage] = useState('root');
     const [workspaces, setWorkspaces] = useState([]);
-    const [loading, setLoading] = useState(false);
     const [newWorkspaceName, setNewWorkspaceName] = useState('');
     const [newWorkspaceDesc, setNewWorkspaceDesc] = useState('');
     const [selectedWorkspace, setSelectedWorkspace] = useState(null);
@@ -31,7 +30,6 @@ const WorkspacePalette = forwardRef(({ isOpen, onClose, onWorkspaceChange, curre
     }, [isOpen]);
 
     const loadWorkspaces = async () => {
-        setLoading(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
             const { data, error } = await supabase
@@ -49,8 +47,6 @@ const WorkspacePalette = forwardRef(({ isOpen, onClose, onWorkspaceChange, curre
             setWorkspaces(data);
         } catch (error) {
             console.error('Error loading workspaces:', error);
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -154,14 +150,14 @@ const WorkspacePalette = forwardRef(({ isOpen, onClose, onWorkspaceChange, curre
         }
     };
 
-    const goBack = () => {
+    const goBack = useCallback(() => {
         if (pageHistory.length > 1) {
             const newHistory = [...pageHistory];
             newHistory.pop();
             setPageHistory(newHistory);
             setPage(newHistory[newHistory.length - 1]);
         }
-    };
+    }, [pageHistory]);
 
     useEffect(() => {
         const handleKeyDown = (e) => {
@@ -170,10 +166,9 @@ const WorkspacePalette = forwardRef(({ isOpen, onClose, onWorkspaceChange, curre
                 goBack();
             }
         };
-
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isOpen, pageHistory]);
+    }, [isOpen, pageHistory, goBack]);
 
     const handleWorkspaceSelect = (workspace) => {
         if (page === 'root') {

@@ -18,7 +18,6 @@ const SearchPalette = forwardRef(({
     const [searchResult, setSearchResult] = useState('');
     const inputRef = useRef(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const [selectedPapers, setSelectedPapers] = useState([]);
 
     // Expose setSearchResult to parent
     useImperativeHandle(ref, () => ({
@@ -50,19 +49,6 @@ const SearchPalette = forwardRef(({
             setSelectedPaperIds([]);
         }
     }, [isOpen, setSelectedPaperIds]);
-
-    // Update selectedPapers whenever papers or selectedPaperIds change
-    useEffect(() => {
-        if (papers && selectedPaperIds) {
-            console.log('Updating selected papers:', { papers, selectedPaperIds });
-            const filtered = papers.filter(paper => selectedPaperIds.includes(paper.id));
-            console.log('Filtered papers:', filtered);
-            if (filtered.length > 0 || papers.length === 0) {
-                // Only update if we found matches or if papers array is empty (still loading)
-                setSelectedPapers(filtered);
-            }
-        }
-    }, [papers, selectedPaperIds]);
 
     const handlePaperToggle = (paperId) => {
         setSelectedPaperIds(prev => 

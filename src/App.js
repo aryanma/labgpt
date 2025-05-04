@@ -2,9 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Viewer, Worker } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import { highlightPlugin } from '@react-pdf-viewer/highlight';
-import { Pencil, Trash2, Pin, Video, ExternalLink, Clock, Eye, Search } from 'lucide-react';
+import { Pencil, Trash2, Pin, Video, ExternalLink, Clock, Eye } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import ResetPassword from './ResetPassword';
 import SearchPalette from './components/SearchPalette';
 import { processAndStorePdf, getPaperContent } from './utils/searchUtils';
@@ -24,7 +24,6 @@ const YOUTUBE_API_KEY = process.env.REACT_APP_YOUTUBE_API_KEY;
 
 function App() {
     const [papers, setPapers] = useState([]);
-    const [personalPapers, setPersonalPapers] = useState([]);
     const [selectedPaper, setSelectedPaper] = useState(null);
     const [notes, setNotes] = useState({});
     const [userMessage, setUserMessage] = useState('');
@@ -43,13 +42,13 @@ function App() {
     const [selectedPaperIds, setSelectedPaperIds] = useState([]);
     const [searchHistory, setSearchHistory] = useState([]);
     const [totalPages, setTotalPages] = useState(1);
-    const TOKEN_LIMIT = 30000; // Gemini's token limit
     const [query, setQuery] = useState('');
     const searchPaletteRef = useRef(null);
     const [isWorkspaceOpen, setIsWorkspaceOpen] = useState(false);
     const [currentWorkspace, setCurrentWorkspace] = useState(null);
     const workspacePaletteRef = useRef(null);
     const [isSearchHistoryOpen, setIsSearchHistoryOpen] = useState(false);
+    const location = useLocation();
 
     const defaultLayoutPluginInstance = defaultLayoutPlugin();
     const highlightPluginInstance = highlightPlugin({
@@ -1134,8 +1133,8 @@ Please provide relevant excerpts and explanations from these papers that answer 
         }
     };
 
-    // Update loadUserPapers function to properly exclude workspace papers from personal view
-    const loadUserPapers = async () => {
+    // Wrap loadUserPapers in useCallback
+    const loadUserPapers = useCallback(async () => {
         if (!session?.user) return;
         setIsLoadingPapers(true);
         try {
@@ -1197,7 +1196,6 @@ Please provide relevant excerpts and explanations from these papers that answer 
 
             // Filter out any papers that failed to load and update both states
             const validPapers = transformedPapers.filter(Boolean);
-            setPersonalPapers(validPapers);
             setPapers(validPapers);
 
         } catch (error) {
@@ -1206,37 +1204,10 @@ Please provide relevant excerpts and explanations from these papers that answer 
         } finally {
             setIsLoadingPapers(false);
         }
-    };
+    }, [session]);
 
-    // Update handleWorkspaceChange to properly handle workspace transitions
-    const handleWorkspaceChange = async (workspace) => {
-        setIsLoadingPapers(true);
-        try {
-            if (workspace) {
-                // Switching to a workspace
-                setCurrentWorkspace(workspace);
-                localStorage.setItem('currentWorkspace', JSON.stringify(workspace));
-                await loadWorkspacePapers(workspace.id);
-            } else {
-                // Exiting workspace
-                setCurrentWorkspace(null);
-                localStorage.removeItem('currentWorkspace');
-                // Load and set personal papers
-                await loadUserPapers();
-            }
-            
-            // Clear selected paper when switching contexts
-            setSelectedPaper(null);
-            
-        } catch (error) {
-            console.error('Error changing workspace:', error);
-            alert('Error changing workspace context');
-        } finally {
-            setIsLoadingPapers(false);
-        }
-    };
-
-    const loadPapers = async () => {
+    // Wrap loadPapers in useCallback
+    const loadPapers = useCallback(async () => {
         if (!session?.user) return;
         setIsLoadingPapers(true);
 
@@ -1350,7 +1321,7 @@ Please provide relevant excerpts and explanations from these papers that answer 
         } finally {
             setIsLoadingPapers(false);
         }
-    };
+    }, [session, currentWorkspace]);
 
     // Add effect to load initial papers
     useEffect(() => {
@@ -1368,14 +1339,14 @@ Please provide relevant excerpts and explanations from these papers that answer 
         };
 
         loadInitialPapers();
-    }, [session]);
+    }, [session, loadUserPapers]);
 
     // Add effect to load papers when workspace context changes
     useEffect(() => {
         if (session?.user) {
             loadPapers();
         }
-    }, [session, currentWorkspace]); // Re-run when session or workspace context changes
+    }, [session, currentWorkspace, loadPapers]);
 
     // Add subscription for paper deletions
     useEffect(() => {
@@ -1454,6 +1425,32 @@ Please provide relevant excerpts and explanations from these papers that answer 
             setUserMessage('');
         }
     }, [papers, selectedPaper]);
+
+    // Add this function near other handler functions
+    const handleWorkspaceChange = async (workspace) => {
+        setIsLoadingPapers(true);
+        try {
+            if (workspace) {
+                // Switching to a workspace
+                setCurrentWorkspace(workspace);
+                localStorage.setItem('currentWorkspace', JSON.stringify(workspace));
+                await loadWorkspacePapers(workspace.id);
+            } else {
+                // Exiting workspace
+                setCurrentWorkspace(null);
+                localStorage.removeItem('currentWorkspace');
+                // Load and set personal papers
+                await loadUserPapers();
+            }
+            // Clear selected paper when switching contexts
+            setSelectedPaper(null);
+        } catch (error) {
+            console.error('Error changing workspace:', error);
+            alert('Error changing workspace context');
+        } finally {
+            setIsLoadingPapers(false);
+        }
+    };
 
     return (
         <Router>
@@ -1720,7 +1717,7 @@ Please provide relevant excerpts and explanations from these papers that answer 
                 onWorkspaceChange={handleWorkspaceChange}
                 currentWorkspace={currentWorkspace}
             />
-            {session && (
+            {session && location.pathname !== '/reset-password' && (
                 <div className="cmd-k-hint">
                     <span>Press</span>
                     <span className="kbd">⌘</span>
