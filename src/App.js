@@ -749,11 +749,14 @@ Please provide a clear and concise response, focusing on the specific question w
     const handleForgotPassword = async () => {
         if (!email) {
             alert('Please enter your email first!');
+            return;
         }
         const redirectBase = process.env.REACT_APP_REDIRECT_URL || window.location.origin;
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${redirectBase}/reset-password`
         });
+        // Immediately sign out to clear the temp session
+        await supabase.auth.signOut();
         if (error) {
             alert(error.message);
         } else {
