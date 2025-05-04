@@ -4,7 +4,7 @@ import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import { highlightPlugin } from '@react-pdf-viewer/highlight';
 import { Pencil, Trash2, Pin, Video, ExternalLink, Clock, Eye } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import ResetPassword from './ResetPassword';
 import SearchPalette from './components/SearchPalette';
 import { processAndStorePdf, getPaperContent } from './utils/searchUtils';
@@ -1453,7 +1453,7 @@ Please provide relevant excerpts and explanations from these papers that answer 
     };
 
     return (
-        <Router>
+        <div className="App">
             <Routes>
                 {/* Reset Password Route */}
                 <Route path="/reset-password" element={<ResetPassword />} />
@@ -1462,7 +1462,7 @@ Please provide relevant excerpts and explanations from these papers that answer 
                 <Route
                     path="/"
                     element={
-                        <div className="App">
+                        <>
                             <header className="App-header">
                                 <h1>LabGPT</h1>
                                 <div className="header-actions">
@@ -1520,7 +1520,7 @@ Please provide relevant excerpts and explanations from these papers that answer 
                             ) : (
                                 <>
                                     <button onClick={handleSignOut} className="logout-btn">Sign Out</button>
-                    
+                        
                                     <div className="upload-container">
                                         <div className="upload-section">
                                             <input
@@ -1706,7 +1706,7 @@ Please provide relevant excerpts and explanations from these papers that answer 
                                     />
                                 </>
                             )}
-                        </div>
+                        </>
                     }
                 />
             </Routes>
@@ -1730,7 +1730,7 @@ Please provide relevant excerpts and explanations from these papers that answer 
                     <span>for workspaces</span>
                 </div>
             )}
-        </Router>
+        </div>
     );
 }
 
