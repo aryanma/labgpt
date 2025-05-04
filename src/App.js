@@ -1475,14 +1475,16 @@ Please provide relevant excerpts and explanations from these papers that answer 
                                             <span>Workspace: {currentWorkspace.name}</span>
                                         </div>
                                     )}
-                                    <button
-                                        className="search-history-toggle-btn"
-                                        title="Toggle search history"
-                                        onClick={() => setIsSearchHistoryOpen((open) => !open)}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                                    >
-                                        <Clock size={22} color="#00A3A3" />
-                                    </button>
+                                    {session && (
+                                        <button
+                                            className="search-history-toggle-btn"
+                                            title="Toggle search history"
+                                            onClick={() => setIsSearchHistoryOpen((open) => !open)}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                                        >
+                                            <Clock size={22} color="#00A3A3" />
+                                        </button>
+                                    )}
                                 </div>
                             </header>
 
@@ -1718,10 +1720,19 @@ Please provide relevant excerpts and explanations from these papers that answer 
                 onWorkspaceChange={handleWorkspaceChange}
                 currentWorkspace={currentWorkspace}
             />
-            <div className="cmd-k-hint">
-                Press <span className="kbd">⌘</span> + <span className="kbd">K</span> to search
-                or <span className="kbd">⌘</span> + <span className="kbd">I</span> for workspaces
-            </div>
+            {session && (
+                <div className="cmd-k-hint">
+                    <span>Press</span>
+                    <span className="kbd">⌘</span>
+                    <span>+</span>
+                    <span className="kbd">K</span>
+                    <span>to search or</span>
+                    <span className="kbd">⌘</span>
+                    <span>+</span>
+                    <span className="kbd">I</span>
+                    <span>for workspaces</span>
+                </div>
+            )}
         </Router>
     );
 }
