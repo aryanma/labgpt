@@ -2,6 +2,7 @@
   "name": "project1",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@craco/craco": "^7.1.0",
     "@firebase/auth": "^1.8.1",
