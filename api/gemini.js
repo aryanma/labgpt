@@ -6,6 +6,19 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  let prompt;
+  try {
+    // Vercel may not parse JSON automatically
+    if (typeof req.body === 'string') {
+      const parsed = JSON.parse(req.body);
+      prompt = parsed.prompt;
+    } else {
+      prompt = req.body.prompt;
+    }
+  } catch (e) {
+    return res.status(400).json({ error: 'Invalid JSON in request body' });
+  }
+
   try {
     // Load service account JSON from env variable
     const serviceAccount = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -25,7 +38,7 @@ export default async function handler(req, res) {
       contents: [
         {
           role: 'user',
-          parts: [{ text: req.body.prompt }]
+          parts: [{ text: prompt }]
         }
       ]
     };
