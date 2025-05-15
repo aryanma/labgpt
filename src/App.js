@@ -19,7 +19,6 @@ import '@react-pdf-viewer/default-layout/lib/styles/index.css';
 import './App.css';
 
 const GEMINI_API_KEY = process.env.REACT_APP_GEMINI_API_KEY;
-const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-pro-exp-03-25:generateContent';
 const YOUTUBE_API_KEY = process.env.REACT_APP_YOUTUBE_API_KEY;
 
 function App() {
@@ -49,6 +48,10 @@ function App() {
     const workspacePaletteRef = useRef(null);
     const [isSearchHistoryOpen, setIsSearchHistoryOpen] = useState(false);
     const location = useLocation();
+    const [authMessage, setAuthMessage] = useState('');
+    const [authMessageType, setAuthMessageType] = useState(''); // 'error' | 'success'
+    const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+    const [isMobile, setIsMobile] = useState(false);
 
     const defaultLayoutPluginInstance = defaultLayoutPlugin();
     const highlightPluginInstance = highlightPlugin({
@@ -630,45 +633,26 @@ function App() {
 
         setIsGeminiLoading(true);
         try {
-            const prompt = `Context: The following is a highlighted text from an academic paper:
-"${highlightedText}"
+            const prompt = `Context: The following is a highlighted text from an academic paper:\n"${highlightedText}"\n\nUser's Question: ${userMessage}\n\nPlease provide a clear and concise response, focusing on the specific question while considering the context of the highlighted text.`;
 
-User's Question: ${userMessage}
-
-Please provide a clear and concise response, focusing on the specific question while considering the context of the highlighted text.`;
-
-            const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+            // Call the local proxy instead of the old Gemini API URL
+            const response = await fetch('/api/gemini', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{
-                            text: prompt
-                        }]
-                    }],
-                    generationConfig: {
-                        temperature: 0.7,
-                        topK: 40,
-                        topP: 0.95,
-                    }
-                })
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt })
             });
 
             if (!response.ok) {
                 const errorData = await response.json();
-                console.error("Gemini API Error:", errorData);
-                throw new Error(`Gemini API error: ${errorData.error?.message || 'Unknown error'}`);
+                console.error("Gemini Proxy Error:", errorData);
+                throw new Error(`Gemini Proxy error: ${errorData.error || 'Unknown error'}`);
             }
 
             const data = await response.json();
-            
-            if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-                throw new Error('Invalid response format from Gemini API');
-            }
-
-            const geminiResponse = data.candidates[0].content.parts[0].text;
+            const searchResult =
+              data.candidates?.[0]?.content?.parts?.[0]?.text ||
+              data.candidates?.[0]?.content?.text ||
+              'No response from Gemini.';
 
             // Create new note with workspace context if applicable
             const newNote = {
@@ -679,7 +663,7 @@ Please provide a clear and concise response, focusing on the specific question w
                 page: currentPage,
                 highlight: highlightedText,
                 message: userMessage,
-                response: geminiResponse,
+                response: searchResult,
                 is_pinned: false,
                 timestamp: new Date().toISOString()
             };
@@ -710,31 +694,55 @@ Please provide a clear and concise response, focusing on the specific question w
         }
     };
 
+    const handleGoogleSignIn = async () => {
+        setAuthMessage('');
+        setAuthMessageType('');
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+            if (error) throw error;
+            // Supabase will redirect, so no need to set session here
+        } catch (error) {
+            setAuthMessage(error.message || 'Google sign-in failed');
+            setAuthMessageType('error');
+        }
+    };
+
+    const handleModeSwitch = (newMode) => {
+        setMode(newMode);
+        setAuthMessage('');
+        setAuthMessageType('');
+        setEmail('');
+        setPassword('');
+    };
+
     const handleSignUp = async () => {
-        const { data, error } = await supabase.auth.signUp({
-            email,
-            password,
-        });
-    
+        setAuthMessage('');
+        setAuthMessageType('');
+        if (!email || !password) {
+            setAuthMessage('Please enter email and password to sign up.');
+            setAuthMessageType('error');
+            return;
+        }
+        const { data, error } = await supabase.auth.signUp({ email, password });
         if (error) {
-            alert(error.message);
+            setAuthMessage(error.message);
+            setAuthMessageType('error');
         } else {
-            console.log("Sign-up successful:", data);
-            alert('Check your email for confirmation!');
+            setAuthMessage('Check your email for confirmation!');
+            setAuthMessageType('success');
         }
     };
     
     const handleSignIn = async () => {
-        const { data, error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
-        });
-    
+        setAuthMessage('');
+        setAuthMessageType('');
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
-            alert(error.message);
+            setAuthMessage(error.message);
+            setAuthMessageType('error');
         } else {
-            console.log("Sign-in successful:", data);
-            alert('Logged in successfully!');
+            setAuthMessage('Logged in successfully!');
+            setAuthMessageType('success');
         }
     };    
     
@@ -747,20 +755,24 @@ Please provide a clear and concise response, focusing on the specific question w
     };
     
     const handleForgotPassword = async () => {
+        setAuthMessage('');
+        setAuthMessageType('');
         if (!email) {
-            alert('Please enter your email first!');
+            setAuthMessage('Please enter your email first!');
+            setAuthMessageType('error');
             return;
         }
         const redirectBase = process.env.REACT_APP_REDIRECT_URL || window.location.origin;
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
             redirectTo: `${redirectBase}/reset-password`
         });
-        // Immediately sign out to clear the temp session
         await supabase.auth.signOut();
         if (error) {
-            alert(error.message);
+            setAuthMessage(error.message);
+            setAuthMessageType('error');
         } else {
-            alert('Password reset email sent! Check your inbox.');
+            setAuthMessage('Password reset email sent! Check your inbox.');
+            setAuthMessageType('success');
         }
     };    
 
@@ -908,20 +920,19 @@ ${contents.map((content, i) => `Paper ${i + 1}: ${content}`).join('\n\n')}
 
 Please provide relevant excerpts and explanations from these papers that answer or relate to the search query. Format your response clearly, citing which paper each piece of information comes from.`;
 
-            const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+            const response = await fetch('/api/gemini', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }]
-                })
+                body: JSON.stringify({ prompt })
             });
 
             if (!response.ok) throw new Error('Failed to get response from Gemini');
             
             const data = await response.json();
-            const searchResult = data.candidates[0].content.parts[0].text;
+            const searchResult =
+              data.candidates?.[0]?.content?.parts?.[0]?.text ||
+              data.candidates?.[0]?.content?.text ||
+              'No response from Gemini.';
 
             // Save to search history
             const { error } = await supabase
@@ -1455,283 +1466,354 @@ Please provide relevant excerpts and explanations from these papers that answer 
         }
     };
 
+    useEffect(() => {
+        // Simple mobile detection
+        const checkMobile = () => {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            // iOS/Android/other mobile
+            if (/android|iphone|ipad|ipod|opera mini|iemobile|mobile/i.test(userAgent)) {
+                setIsMobile(true);
+            } else {
+                setIsMobile(false);
+            }
+        };
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
     return (
         <div className="App">
-            <Routes>
-                {/* Reset Password Route */}
-                <Route path="/reset-password" element={<ResetPassword />} />
-
-                {/* Main App Route */}
-                <Route
-                    path="/"
-                    element={
-                        <>
-                            <header className="App-header">
-                                <h1>LabGPT</h1>
-                                <div className="header-actions">
-                                    <span className="header-subtitle">Your AI-powered research assistant</span>
-                                    {currentWorkspace && (
-                                        <div className="current-workspace">
-                                            <span>Workspace: {currentWorkspace.name}</span>
-                                        </div>
-                                    )}
-                                    {session && (
-                                        <button
-                                            className="search-history-toggle-btn"
-                                            title="Toggle search history"
-                                            onClick={() => setIsSearchHistoryOpen((open) => !open)}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
-                                        >
-                                            <Clock size={22} color="#00A3A3" />
-                                        </button>
-                                    )}
+            {isMobile ? (
+                <div style={{
+                    minHeight: '100vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#fff',
+                    color: '#111827',
+                    fontFamily: 'inherit',
+                    textAlign: 'center',
+                    padding: '2rem'
+                }}>
+                    <h2 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: '1rem' }}>LabGPT is Desktop Only</h2>
+                    <p style={{ fontSize: '1.1rem', color: '#6b7280', maxWidth: 400 }}>
+                        LabGPT is only available on desktop. Please access this app from a desktop browser for the best experience.
+                    </p>
+                </div>
+            ) : (
+                <>
+                    <header className="App-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center' }}>
+                            {selectedPaper && (
+                                <button
+                                    className="back-to-library-btn"
+                                    onClick={() => setSelectedPaper(null)}
+                                    style={{ position: 'static', marginRight: '1rem' }}
+                                >
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                    Back to Library
+                                </button>
+                            )}
+                            <h1 style={{ margin: 0 }}>LabGPT</h1>
+                        </div>
+                        <div className="header-actions">
+                            <span className="header-subtitle">Your AI-powered research assistant</span>
+                            {currentWorkspace && (
+                                <div className="current-workspace">
+                                    <span>Workspace: {currentWorkspace.name}</span>
                                 </div>
-                            </header>
-
-                            {!session ? (
-                                <div className="auth-container">
-                                    <h2>Welcome 👋</h2>
-                                    <p style={{ color: "#888", fontSize: "1rem", textAlign: "center", marginBottom: "10px" }}>
-                                        Sign in or create an account to start using LabGPT.
-                                    </p>
-
-                                    <input
-                                        type="email"
-                                        placeholder="Enter your email"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                    />
-                                    <input
-                                        type="password"
-                                        placeholder="Enter your password"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
-
-                                    <button onClick={handleSignIn} className="sign-in-btn">Sign In</button>
-
-                                    <button onClick={handleForgotPassword} className="forgot-password-btn">
-                                        Forgot your password?
-                                    </button>
-
-                                    <div className="auth-divider">or</div>
-
-                                    <button onClick={handleSignUp} className='sign-up-btn'>
-                                        Sign Up
-                                    </button>
-                                </div>
-                            ) : (
-                                <>
-                                    <button onClick={handleSignOut} className="logout-btn">Sign Out</button>
-                        
-                                    <div className="upload-container">
-                                        <div className="upload-section">
-                                            <input
-                                                type="file"
-                                                accept=".pdf"
-                                                onChange={handleFileUpload}
-                                                className="upload-input"
-                                                ref={fileInputRef}
-                                                id="file-upload"
-                                            />
-                                            <label htmlFor="file-upload" className="upload-label">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                                    <polyline points="17 8 12 3 7 8" />
-                                                    <line x1="12" y1="3" x2="12" y2="15" />
-                                                </svg>
-                                                Upload PDF
-                                            </label>
-                                        </div>
-                                    </div>
-                            
-                                    <div className="papers-grid">
-                                        {isLoadingPapers ? (
-                                            <div className="loading-papers">
-                                                <span className="loading-spinner"></span>
-                                                <span>Loading papers...</span>
-                                            </div>
-                                        ) : papers.length > 0 ? (
-                                            papers.map((paper) => (
-                                                <div
-                                                    key={paper.id}
-                                                    className="paper-card"
-                                                    onClick={() => handleSelectPaper(paper)}
-                                                >
-                                                    <h3>{paper.title}</h3>
-                                                    <p className="date-added">{paper.dateAdded}</p>
-                                                    <button
-                                                        className="delete-btn"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDelete(paper.id);
-                                                        }}
-                                                    >
-                                                        Delete
-                                                    </button>
-                                                </div>
-                                            ))
-                                        ) : (
-                                            <div className="no-papers">
-                                                <p>No papers found. Upload a PDF to get started!</p>
+                            )}
+                            {session && (
+                                <button
+                                    className="search-history-toggle-btn"
+                                    title="Toggle search history"
+                                    onClick={() => setIsSearchHistoryOpen((open) => !open)}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4 }}
+                                >
+                                    <Clock size={22} color="#00A3A3" />
+                                </button>
+                            )}
+                        </div>
+                    </header>
+                    <Routes>
+                        <Route path="/reset-password" element={<ResetPassword />} />
+                        <Route
+                            path="/"
+                            element={
+                                !session ? (
+                                    <div className="auth-container">
+                                        <h2>Welcome 👋</h2>
+                                        <p style={{ color: "#888", fontSize: "1rem", textAlign: "center", marginBottom: "10px" }}>
+                                            Sign in or create an account to start using LabGPT.
+                                        </p>
+                                        {authMessage && (
+                                            <div style={{ color: authMessageType === 'error' ? '#dc2626' : '#059669', marginBottom: '1rem', fontSize: '0.95rem' }}>
+                                                {authMessage}
                                             </div>
                                         )}
+                                        <button className="google-btn" onClick={handleGoogleSignIn} type="button">
+                                            <svg width="20" height="20" viewBox="0 0 48 48" style={{ marginRight: 8, verticalAlign: 'middle' }}><g><path fill="#4285F4" d="M24 9.5c3.54 0 6.7 1.22 9.19 3.22l6.85-6.85C35.91 2.36 30.28 0 24 0 14.82 0 6.71 5.06 2.69 12.44l7.98 6.2C12.13 13.13 17.62 9.5 24 9.5z"/><path fill="#34A853" d="M46.1 24.55c0-1.64-.15-3.22-.42-4.74H24v9.01h12.42c-.54 2.9-2.18 5.36-4.65 7.01l7.19 5.6C43.93 37.13 46.1 31.3 46.1 24.55z"/><path fill="#FBBC05" d="M10.67 28.65c-1.01-2.9-1.01-6.01 0-8.91l-7.98-6.2C.99 17.36 0 20.57 0 24c0 3.43.99 6.64 2.69 9.46l7.98-6.2z"/><path fill="#EA4335" d="M24 48c6.28 0 11.91-2.07 15.88-5.65l-7.19-5.6c-2.01 1.35-4.59 2.15-8.69 2.15-6.38 0-11.87-3.63-14.33-8.94l-7.98 6.2C6.71 42.94 14.82 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></g></svg>
+                                            Continue with Google
+                                        </button>
+                                        <div className="auth-divider">or</div>
+                                        <input
+                                            type="email"
+                                            placeholder="Enter your email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            autoComplete="username"
+                                        />
+                                        <input
+                                            type="password"
+                                            placeholder="Enter your password"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                            autoComplete={mode === 'signup' ? 'new-password' : 'current-password'}
+                                        />
+                                        {mode === 'signin' ? (
+                                            <>
+                                                <button onClick={handleSignIn} className="sign-in-btn">Sign In</button>
+                                                <button onClick={handleForgotPassword} className="forgot-password-btn">
+                                                    Forgot your password?
+                                                </button>
+                                                <div className="auth-divider">or</div>
+                                                <button
+                                                    className="sign-up-btn"
+                                                    type="button"
+                                                    style={{ marginBottom: 0 }}
+                                                    onClick={() => handleModeSwitch('signup')}
+                                                >
+                                                    Create an account
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    onClick={handleSignUp}
+                                                    className="sign-in-btn"
+                                                    disabled={!email || !password}
+                                                    style={{ marginBottom: 0 }}
+                                                >
+                                                    Sign Up
+                                                </button>
+                                                <div className="auth-divider">or</div>
+                                                <button
+                                                    className="sign-up-btn"
+                                                    type="button"
+                                                    style={{ marginBottom: 0 }}
+                                                    onClick={() => handleModeSwitch('signin')}
+                                                >
+                                                    Already have an account? Sign In
+                                                </button>
+                                            </>
+                                        )}
                                     </div>
-                            
-                                    {selectedPaper && papers.length > 0 && (
-                                        <div className="paper-viewer-container">
-                                            <div className="pdf-container">
-                                                <div className="border-accent">
-                                                    <div className="border-line"></div>
-                                                    <div className="border-line-2"></div>
-                                                </div>
-                                                <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`}>
-                                                    <div className="pdf-viewer">
-                                                        <Viewer
-                                                            fileUrl={selectedPaper?.file}
-                                                            plugins={[defaultLayoutPluginInstance, highlightPluginInstance]}
-                                                            onPageChange={(e) => setCurrentPage(e.currentPage)}
-                                                        />
-                                                    </div>
-                                                </Worker>
+                                ) : (
+                                    <>
+                                        <button onClick={handleSignOut} className="logout-btn">Sign Out</button>
+                                        <div className="upload-container">
+                                            <div className="upload-section">
+                                                <input
+                                                    type="file"
+                                                    accept=".pdf"
+                                                    onChange={handleFileUpload}
+                                                    className="upload-input"
+                                                    ref={fileInputRef}
+                                                    id="file-upload"
+                                                />
+                                                <label htmlFor="file-upload" className="upload-label">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                                        <polyline points="17 8 12 3 7 8" />
+                                                        <line x1="12" y1="3" x2="12" y2="15" />
+                                                    </svg>
+                                                    Upload PDF
+                                                </label>
                                             </div>
-                                            <div className="right-panel">
-                                                <div className="notes-tab">
+                                        </div>
+                                        {!selectedPaper ? (
+                                            <div className="papers-grid">
+                                                {isLoadingPapers ? (
+                                                    <div className="loading-papers">
+                                                        <span className="loading-spinner"></span>
+                                                        <span>Loading papers...</span>
+                                                    </div>
+                                                ) : papers.length > 0 ? (
+                                                    papers.map((paper) => (
+                                                        <div
+                                                            key={paper.id}
+                                                            className="paper-card"
+                                                            onClick={() => handleSelectPaper(paper)}
+                                                        >
+                                                            <h3>{paper.title}</h3>
+                                                            <p className="date-added">{paper.dateAdded}</p>
+                                                            <button
+                                                                className="delete-btn"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleDelete(paper.id);
+                                                                }}
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <div className="no-papers">
+                                                        <p>No papers found. Upload a PDF to get started!</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="split-view-container">
+                                                <div className="pdf-container">
                                                     <div className="border-accent">
                                                         <div className="border-line"></div>
                                                         <div className="border-line-2"></div>
                                                     </div>
-                                                    <h3>
-                                                        <Pencil size={16} />
-                                                        AI-Generated Notes
-                                                    </h3>
-                                                    {notes[selectedPaper.id]?.length > 0 ? (
-                                                        <div className="notes-list">
-                                                            {notes[selectedPaper.id].some(note => note.isPinned) && (
-                                                                <div className="pinned-items">
-                                                                    <div className="pinned-header">
-                                                                        <Pin size={16} />
-                                                                        Pinned Notes
-                                                                    </div>
-                                                                    {notes[selectedPaper.id]
-                                                                        .filter(note => note.isPinned)
-                                                                        .map(renderNote)}
-                                                                </div>
-                                                            )}
-                                                            {notes[selectedPaper.id]
-                                                                .filter(note => !note.isPinned)
-                                                                .map(renderNote)}
+                                                    <Worker workerUrl={`https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js`}>
+                                                        <div className="pdf-viewer">
+                                                            <Viewer
+                                                                fileUrl={selectedPaper?.file}
+                                                                plugins={[defaultLayoutPluginInstance, highlightPluginInstance]}
+                                                                onPageChange={(e) => setCurrentPage(e.currentPage)}
+                                                            />
                                                         </div>
-                                                    ) : (
-                                                        <p>No notes yet. Highlight text in the PDF to generate notes.</p>
-                                                    )}
+                                                    </Worker>
                                                 </div>
-                                                
-                                                <div className="video-suggestions-tab">
-                                                    <div className="border-accent">
-                                                        <div className="border-line"></div>
-                                                        <div className="border-line-2"></div>
-                                                    </div>
-                                                    <h3>
-                                                        <Video size={16} />
-                                                        AI-Generated Video Suggestions
-                                                    </h3>
-                                                    {isVideoLoading && (
-                                                        <div className="video-loading">
-                                                            <span className="loading-spinner"></span>
-                                                            <span>Searching for relevant videos...</span>
+                                                <div className="right-panel">
+                                                    <div className="notes-tab">
+                                                        <div className="border-accent">
+                                                            <div className="border-line"></div>
+                                                            <div className="border-line-2"></div>
                                                         </div>
-                                                    )}
-                                                    
-                                                    {videoSuggestions[selectedPaper?.id]?.length > 0 ? (
-                                                        <div className="video-suggestions-container">
-                                                            {/* Pinned Video Suggestions */}
-                                                            {videoSuggestions[selectedPaper.id].some(suggestion => suggestion.isPinned) && (
-                                                                <div className="pinned-items">
-                                                                    <div className="pinned-header">
-                                                                        <Pin size={16} />
-                                                                        Pinned Videos
+                                                        <h3>
+                                                            <Pencil size={16} />
+                                                            AI-Generated Notes
+                                                        </h3>
+                                                        {notes[selectedPaper.id]?.length > 0 ? (
+                                                            <div className="notes-list">
+                                                                {notes[selectedPaper.id].some(note => note.isPinned) && (
+                                                                    <div className="pinned-items">
+                                                                        <div className="pinned-header">
+                                                                            <Pin size={16} />
+                                                                            Pinned Notes
+                                                                        </div>
+                                                                        {notes[selectedPaper.id]
+                                                                            .filter(note => note.isPinned)
+                                                                            .map(renderNote)}
                                                                     </div>
-                                                                    {videoSuggestions[selectedPaper.id]
-                                                                        .filter(suggestion => suggestion.isPinned)
-                                                                        .map(renderVideoSuggestion)}
-                                                                </div>
-                                                            )}
-                                                            
-                                                            {/* Unpinned Video Suggestions */}
-                                                            {videoSuggestions[selectedPaper.id]
-                                                                .filter(suggestion => !suggestion.isPinned)
-                                                                .map(renderVideoSuggestion)}
+                                                                )}
+                                                                {notes[selectedPaper.id]
+                                                                    .filter(note => !note.isPinned)
+                                                                    .map(renderNote)}
+                                                            </div>
+                                                        ) : (
+                                                            <p>No notes yet. Highlight text in the PDF to generate notes.</p>
+                                                        )}
+                                                    </div>
+                                                    <div className="video-suggestions-tab">
+                                                        <div className="border-accent">
+                                                            <div className="border-line"></div>
+                                                            <div className="border-line-2"></div>
                                                         </div>
-                                                    ) : (
-                                                        <div>
-                                                            <p>No video suggestions yet. Highlight text in the PDF to generate video suggestions.</p>
-                                                        </div>
-                                                    )}
+                                                        <h3>
+                                                            <Video size={16} />
+                                                            AI-Generated Video Suggestions
+                                                        </h3>
+                                                        {isVideoLoading && (
+                                                            <div className="video-loading">
+                                                                <span className="loading-spinner"></span>
+                                                                <span>Searching for relevant videos...</span>
+                                                            </div>
+                                                        )}
+                                                        {videoSuggestions[selectedPaper?.id]?.length > 0 ? (
+                                                            <div className="video-suggestions-container">
+                                                                {videoSuggestions[selectedPaper.id].some(suggestion => suggestion.isPinned) && (
+                                                                    <div className="pinned-items">
+                                                                        <div className="pinned-header">
+                                                                            <Pin size={16} />
+                                                                            Pinned Videos
+                                                                        </div>
+                                                                        {videoSuggestions[selectedPaper.id]
+                                                                            .filter(suggestion => suggestion.isPinned)
+                                                                            .map(renderVideoSuggestion)}
+                                                                    </div>
+                                                                )}
+                                                                {videoSuggestions[selectedPaper.id]
+                                                                    .filter(suggestion => !suggestion.isPinned)
+                                                                    .map(renderVideoSuggestion)}
+                                                            </div>
+                                                        ) : (
+                                                            <div>
+                                                                <p>No video suggestions yet. Highlight text in the PDF to generate video suggestions.</p>
+                                                            </div>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    )}
-                                    
-                                    {session && (
-                                        <>
-                                            <SearchPalette
-                                                ref={searchPaletteRef}
-                                                isOpen={isSearchOpen}
-                                                onClose={() => setIsSearchOpen(false)}
-                                                papers={papers}
-                                                onSearch={handleSearch}
-                                                selectedPaperIds={selectedPaperIds}
-                                                setSelectedPaperIds={setSelectedPaperIds}
-                                                isGeminiLoading={isGeminiLoading}
-                                                totalPages={totalPages}
-                                                setTotalPages={setTotalPages}
-                                                query={query}
-                                                setQuery={setQuery}
-                                            />
-                                        </>
-                                    )}
-
-                                    {session && isSearchHistoryOpen && (
-                                        <div className="search-section">
-                                            <SearchHistory 
-                                                history={searchHistory}
-                                                onSelect={handleSelectHistory}
-                                                onDelete={handleDeleteHistory}
-                                                onToggleFavorite={handleToggleFavorite}
-                                            />
-                                        </div>
-                                    )}
-                                    <VoiceSearch 
-                                        onVoiceInput={handleVoiceInput}
-                                        selectedPaper={selectedPaper}
-                                        papers={papers}
-                                    />
-                                </>
-                            )}
-                        </>
-                    }
-                />
-            </Routes>
-            <WorkspacePalette
-                ref={workspacePaletteRef}
-                isOpen={isWorkspaceOpen}
-                onClose={() => setIsWorkspaceOpen(false)}
-                onWorkspaceChange={handleWorkspaceChange}
-                currentWorkspace={currentWorkspace}
-            />
-            {session && location.pathname !== '/reset-password' && (
-                <div className="cmd-k-hint">
-                    <span>Press</span>
-                    <span className="kbd">⌘</span>
-                    <span>+</span>
-                    <span className="kbd">K</span>
-                    <span>to search or</span>
-                    <span className="kbd">⌘</span>
-                    <span>+</span>
-                    <span className="kbd">I</span>
-                    <span>for workspaces</span>
-                </div>
+                                        )}
+                                        {session && (
+                                            <>
+                                                <SearchPalette
+                                                    ref={searchPaletteRef}
+                                                    isOpen={isSearchOpen}
+                                                    onClose={() => setIsSearchOpen(false)}
+                                                    papers={papers}
+                                                    onSearch={handleSearch}
+                                                    selectedPaperIds={selectedPaperIds}
+                                                    setSelectedPaperIds={setSelectedPaperIds}
+                                                    isGeminiLoading={isGeminiLoading}
+                                                    totalPages={totalPages}
+                                                    setTotalPages={setTotalPages}
+                                                    query={query}
+                                                    setQuery={setQuery}
+                                                />
+                                            </>
+                                        )}
+                                        {session && isSearchHistoryOpen && (
+                                            <div className="search-section">
+                                                <SearchHistory 
+                                                    history={searchHistory}
+                                                    onSelect={handleSelectHistory}
+                                                    onDelete={handleDeleteHistory}
+                                                    onToggleFavorite={handleToggleFavorite}
+                                                />
+                                            </div>
+                                        )}
+                                        <VoiceSearch 
+                                            onVoiceInput={handleVoiceInput}
+                                            selectedPaper={selectedPaper}
+                                            papers={papers}
+                                        />
+                                    </>
+                                )
+                            }
+                        />
+                    </Routes>
+                    <WorkspacePalette
+                        ref={workspacePaletteRef}
+                        isOpen={isWorkspaceOpen}
+                        onClose={() => setIsWorkspaceOpen(false)}
+                        onWorkspaceChange={handleWorkspaceChange}
+                        currentWorkspace={currentWorkspace}
+                    />
+                    {session && location.pathname !== '/reset-password' && (
+                        <div className="cmd-k-hint">
+                            <span>Press</span>
+                            <span className="kbd">⌘</span>
+                            <span>+</span>
+                            <span className="kbd">K</span>
+                            <span>to search or</span>
+                            <span className="kbd">⌘</span>
+                            <span>+</span>
+                            <span className="kbd">I</span>
+                            <span>for workspaces</span>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     );
